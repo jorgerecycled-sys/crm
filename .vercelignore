@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+scripts/
+docker/
+Dockerfile
+docker-compose*.yml
+Makefile
+dev.log
+dev.err
+prisma/seed.ts

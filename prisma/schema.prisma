@@ -1,0 +1,448 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── RBAC ───────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ─── USERS ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  roleId        String
+  status        UserStatus @default(ACTIVE)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  role             Role               @relation(fields: [roleId], references: [id])
+  channelAccess    UserChannelAccess[]
+  refreshTokens    RefreshToken[]
+  assignedLeads    Lead[]             @relation("AssignedLeads")
+  conversations    Conversation[]
+  followups        Followup[]
+  tasks            Task[]
+  incidents        Incident[]
+  incidentComments IncidentComment[]
+  activityLogs     ActivityLog[]
+
+  @@index([email])
+  @@index([roleId])
+  @@map("erp_users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ─── CRM CHANNELS ────────────────────────────────────────────────────────────
+
+model CrmChannel {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String
+  color       String   @default("#6366f1")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userAccess    UserChannelAccess[]
+  leads         Lead[]
+  conversations Conversation[]
+  followups     Followup[]
+  sales         Sale[]
+  tasks         Task[]
+
+  @@index([slug])
+  @@index([active])
+  @@map("crm_channels")
+}
+
+model UserChannelAccess {
+  userId    String
+  channelId String
+  grantedAt DateTime @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   CrmChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channelId])
+  @@map("user_channel_access")
+}
+
+// ─── LEADS ───────────────────────────────────────────────────────────────────
+
+model Lead {
+  id           String     @id @default(uuid())
+  name         String
+  username     String?
+  channelId    String
+  status       LeadStatus @default(NEW)
+  priority     Priority   @default(MEDIUM)
+  assignedToId String?
+  notes        String?
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  channel       CrmChannel     @relation(fields: [channelId], references: [id])
+  assignedTo    User?          @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  conversations Conversation[]
+  followups     Followup[]
+  sales         Sale[]
+
+  @@index([channelId])
+  @@index([status])
+  @@index([assignedToId])
+  @@map("leads")
+}
+
+// ─── CONVERSATIONS ───────────────────────────────────────────────────────────
+
+model Conversation {
+  id            String   @id @default(uuid())
+  leadId        String
+  channelId     String
+  message       String
+  direction     ConversationDirection @default(OUTBOUND)
+  responsibleId String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel     CrmChannel @relation(fields: [channelId], references: [id])
+  responsible User       @relation(fields: [responsibleId], references: [id])
+
+  @@index([leadId])
+  @@index([channelId])
+  @@map("conversations")
+}
+
+// ─── FOLLOWUPS ───────────────────────────────────────────────────────────────
+
+model Followup {
+  id            String         @id @default(uuid())
+  leadId        String
+  channelId     String
+  scheduledAt   DateTime
+  responsibleId String
+  status        FollowupStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel     CrmChannel @relation(fields: [channelId], references: [id])
+  responsible User       @relation(fields: [responsibleId], references: [id])
+
+  @@index([leadId])
+  @@index([channelId])
+  @@index([scheduledAt])
+  @@map("followups")
+}
+
+// ─── SALES ───────────────────────────────────────────────────────────────────
+
+model Sale {
+  id        String      @id @default(uuid())
+  leadId    String
+  channelId String
+  title     String
+  amount    Decimal?    @db.Decimal(10, 2)
+  stage     SaleStage   @default(NEW)
+  notes     String?
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  lead    Lead       @relation(fields: [leadId], references: [id])
+  channel CrmChannel @relation(fields: [channelId], references: [id])
+
+  @@index([channelId])
+  @@index([stage])
+  @@map("sales")
+}
+
+// ─── TASKS ───────────────────────────────────────────────────────────────────
+
+model Task {
+  id            String     @id @default(uuid())
+  title         String
+  description   String?
+  channelId     String?
+  assignedToId  String?
+  priority      Priority   @default(MEDIUM)
+  dueDate       DateTime?
+  status        TaskStatus @default(TODO)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  channel    CrmChannel? @relation(fields: [channelId], references: [id])
+  assignedTo User?       @relation(fields: [assignedToId], references: [id])
+
+  @@index([channelId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("tasks")
+}
+
+// ─── INCIDENTS ───────────────────────────────────────────────────────────────
+
+model Incident {
+  id          String           @id @default(uuid())
+  title       String
+  description String
+  category    IncidentCategory
+  priority    Priority         @default(MEDIUM)
+  status      IncidentStatus   @default(OPEN)
+  reportedById String
+  attachments Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  reportedBy User              @relation(fields: [reportedById], references: [id])
+  comments   IncidentComment[]
+  history    IncidentHistory[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([reportedById])
+  @@map("incidents")
+}
+
+model IncidentComment {
+  id         String   @id @default(uuid())
+  incidentId String
+  userId     String
+  content    String
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([incidentId])
+  @@map("incident_comments")
+}
+
+model IncidentHistory {
+  id         String   @id @default(uuid())
+  incidentId String
+  field      String
+  oldValue   String?
+  newValue   String?
+  changedAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_history")
+}
+
+// ─── AUDIT LOGS ──────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  NEGOTIATING
+  CLOSED
+  LOST
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ConversationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum FollowupStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum SaleStage {
+  NEW
+  CONTACTED
+  INTERESTED
+  OFFER
+  CLOSED
+  LOST
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum IncidentCategory {
+  TECHNICAL
+  COMMERCIAL
+  CLIENT
+  ADMINISTRATION
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  REVIEWING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ─── INSTAGRAM ANALYTICS ─────────────────────────────────────────────────────
+
+model IgAccount {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  igId      String?
+  status    String   @default("active")
+  model     String?
+  employee  String?
+  phoneRef  String?
+  igType    String?
+  niche     String?
+  grupo     String?
+  notes     String?
+  igCreatedOn DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  measurements IgMeasurement[]
+  posts        IgPost[]
+
+  @@index([status])
+  @@map("ig_accounts")
+}
+
+model IgMeasurement {
+  id                  String   @id @default(uuid())
+  accountId           String
+  fecha               String
+  seguidores          Int?
+  siguiendo           Int?
+  seguidoresGanados   Int?
+  reproduccionesTotal Int?
+  postsHoy            Int?
+  reelsHoy            Int?
+  likesDia            Int?
+  comentariosDia      Int?
+  createdAt           DateTime @default(now())
+
+  account IgAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, fecha])
+  @@index([accountId])
+  @@index([fecha])
+  @@map("ig_measurements")
+}
+
+model IgPost {
+  id          String   @id @default(uuid())
+  accountId   String
+  shortcode   String
+  tipo        String?
+  fechaPub    String?
+  visitas     Int?
+  likes       Int?
+  comentarios Int?
+  createdAt   DateTime @default(now())
+
+  account IgAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, shortcode])
+  @@index([accountId])
+  @@map("ig_posts")
+}

@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 39 65% 55%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 39 65% 55%;
+    --radius: 0.5rem;
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 39 65% 55%;
+    --sidebar-primary-foreground: 222 47% 7%;
+    --sidebar-accent: 217 33% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 13%;
+    --sidebar-ring: 39 65% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ── Responsive helpers for inline-styled page grids ─────────────────────── */
+@media (max-width: 640px) {
+  /* Reduce large headings on mobile */
+  h1 { font-size: clamp(1.25rem, 5vw, 1.75rem) !important; }
+
+  /* Let auto-fill grids use smaller min sizes on mobile */
+  [style*="repeat(auto-fill"] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)) !important;
+  }
+
+  /* KPI grids: force 2 columns max */
+  [style*="minmax(150px"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Stat grids in modals and pages */
+  [style*="repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Page header button rows — let them wrap */
+  [style*="justifyContent: 'space-between'"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* Overflow-x for wide tables and lists */
+  .overflow-x-auto, [style*="overflow-x: auto"] {
+    -webkit-overflow-scrolling: touch;
+  }
+}
