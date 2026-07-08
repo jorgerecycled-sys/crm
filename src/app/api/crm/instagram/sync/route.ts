@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 import { requireAuth, handleApiError } from '@/lib/auth/middleware'
 import { promoteNewAccounts, runReelCompliance } from '@/lib/robot/jobs'
 
-export const maxDuration = 60
+export const maxDuration = 290
 
 const RAPIDAPI_KEY = (process.env.RAPIDAPI_KEY ?? '').replace(/^﻿/, '').replace(/[^\x20-\x7E]/g, '').trim()
 const RAPIDAPI_HOST = 'instagram-looter2.p.rapidapi.com'

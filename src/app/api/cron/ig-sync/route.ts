@@ -4,6 +4,8 @@ import { startRun, finishRun, getRobotConfig } from '@/lib/robot/logger'
 
 const JOB = 'ig-sync'
 
+export const maxDuration = 290
+
 async function checkCronAuth(req: NextRequest): Promise<boolean> {
   const cronSecret = process.env.CRON_SECRET
   const authHeader = req.headers.get('authorization')
@@ -44,7 +46,13 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(270_000), // 4.5 min max (Vercel hobby limit is 5 min)
     })
 
-    const data = await res.json() as Record<string, unknown>
+    const text = await res.text()
+    let data: Record<string, unknown>
+    try {
+      data = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      data = { error: `Non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}` }
+    }
     const result = {
       procesadas: data.procesadas ?? 0,
       errores: data.errores ?? 0,
