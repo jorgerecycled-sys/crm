@@ -320,14 +320,25 @@ function PhoneGroupedView({
   const activeGroups   = groups.filter(g => g.accounts.some(a => a.status !== 'unused'))
   const inactiveGroups = groups.filter(g => g.accounts.every(a => a.status === 'unused'))
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['(Sin móvil)']))
+  function toggleGroupCollapsed(ref: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(ref)) next.delete(ref)
+      else next.add(ref)
+      return next
+    })
+  }
+
   function PhoneCard({ ref: phoneRef, accounts: accs, inactive }: { ref: string; accounts: Account[]; inactive?: boolean }) {
     const active   = accs.filter(a => a.status === 'active').length
     const problems = accs.filter(a => ['suspended', 'shadow banned'].includes(a.status)).length
     const headerColor = inactive ? '#6b7280' : '#d4a843'
+    const collapsed = collapsedGroups.has(phoneRef)
     return (
       <div style={{ background: 'var(--surface)', border: `1px solid ${inactive ? 'rgba(107,114,128,0.3)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', opacity: inactive ? 0.85 : 1 }}>
         {/* Phone header */}
-        <div style={{ padding: '12px 18px', background: inactive ? 'rgba(107,114,128,0.04)' : 'rgba(212,168,67,0.04)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div onClick={() => toggleGroupCollapsed(phoneRef)} style={{ padding: '12px 18px', background: inactive ? 'rgba(107,114,128,0.04)' : 'rgba(212,168,67,0.04)', borderBottom: collapsed ? 'none' : '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={headerColor} strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
           <span style={{ fontSize: 14, fontWeight: 800, color: headerColor, flex: 1 }}>{phoneRef}</span>
           <span style={{ fontSize: 11, color: 'var(--muted)', marginRight: 8 }}>{accs.length} cuentas</span>
@@ -335,7 +346,7 @@ function PhoneGroupedView({
           {!inactive && problems > 0 && <span style={{ fontSize: 11, color: '#e05252', fontWeight: 700, marginLeft: 6 }}>{problems} problemas</span>}
           {!inactive && onDeactivatePhone && phoneRef !== '(Sin móvil)' && (
             <button
-              onClick={() => onDeactivatePhone(phoneRef, accs)}
+              onClick={e => { e.stopPropagation(); onDeactivatePhone(phoneRef, accs) }}
               title="Desactivar todas las cuentas de este móvil"
               style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(107,114,128,0.35)', background: 'rgba(107,114,128,0.08)', color: '#6b7280', fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
             >
@@ -344,15 +355,17 @@ function PhoneGroupedView({
           )}
           {inactive && onReactivatePhone && (
             <button
-              onClick={() => onReactivatePhone(phoneRef, accs)}
+              onClick={e => { e.stopPropagation(); onReactivatePhone(phoneRef, accs) }}
               title="Reactivar todas las cuentas de este móvil"
               style={{ marginLeft: 8, padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(52,199,89,0.35)', background: 'rgba(52,199,89,0.08)', color: '#34c759', fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
             >
               ▶ Reactivar móvil
             </button>
           )}
+          <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>{collapsed ? '▼' : '▲'}</span>
         </div>
         {/* Accounts */}
+        {!collapsed && (
         <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
           {accs.map(acc => {
             const statusKey = acc.status.toLowerCase()
@@ -398,6 +411,7 @@ function PhoneGroupedView({
             )
           })}
         </div>
+        )}
       </div>
     )
   }
