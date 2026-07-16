@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
+import { AccountStatsModal, type ModalAccount } from '@/components/crm/AccountStatsModal'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.', ',') + 'M'
@@ -18,17 +18,7 @@ function avatarColor(username: string) {
 
 const MODEL_COLORS = ['#d4a843','#34c759','#f5a623','#a78bfa','#e8623f','#e05252','#cf8a3f','#5b8dd9','#d4569e','#3ecf8e']
 
-interface Account {
-  id: string
-  username: string
-  status: string
-  model: string | null
-  employee: string | null
-  sparkline: { fecha: string; seguidores: number }[]
-  latest: { seguidores: number | null; seguidoresGanados: number | null } | null
-  prev: { seguidores: number | null } | null
-  engagement: number | null
-}
+type Account = ModalAccount
 
 interface ModelGroup {
   name: string
@@ -40,11 +30,10 @@ interface ModelGroup {
 }
 
 export default function ModelosPage() {
-  const { channel } = useParams<{ channel: string }>()
-  const router = useRouter()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [activeModel, setActiveModel] = useState<string | null>(null)
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const autoFilterHandled = useRef(false)
   useEffect(() => {
     const token = useAuthStore.getState().accessToken
@@ -228,7 +217,7 @@ export default function ModelosPage() {
                     const delta = f - p
                     const deltaPct = p > 0 ? (delta / p) * 100 : null
                     return (
-                      <tr key={acc.id} onClick={() => router.push(`/crm/${channel}/estadisticas?cuenta=${encodeURIComponent(acc.username)}`)} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
+                      <tr key={acc.id} onClick={() => setSelectedAccount(acc)} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <td style={{ padding: '10px 16px' }}>
@@ -278,6 +267,8 @@ export default function ModelosPage() {
           No hay datos de modelos. Añade el campo "Modelo" a las cuentas de Instagram.
         </div>
       )}
+
+      {selectedAccount && <AccountStatsModal account={selectedAccount} onClose={() => setSelectedAccount(null)} />}
     </div>
   )
 }

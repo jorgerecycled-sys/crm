@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import { toast } from '@/components/ui/toaster'
 import { LayoutGrid, List } from 'lucide-react'
+import { AccountStatsModal } from '@/components/crm/AccountStatsModal'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.', ',') + 'M'
@@ -103,8 +103,6 @@ interface PhoneInfo {
 }
 
 export default function MovilesPage() {
-  const { channel } = useParams<{ channel: string }>()
-  const router = useRouter()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [phoneAlerts, setPhoneAlerts] = useState<Map<string, PhoneAlert>>(new Map())
   const [phoneInfo, setPhoneInfo] = useState<Map<string, PhoneInfo>>(new Map())
@@ -125,6 +123,7 @@ export default function MovilesPage() {
     gmailUser: '', gmailPassword: '', appleId: '', appleIdPassword: '', appleIdPhone: '', remoteLink: '', notes: '',
   })
   const [savingPhone, setSavingPhone] = useState(false)
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
 
   useEffect(() => {
     const token = useAuthStore.getState().accessToken
@@ -466,7 +465,7 @@ export default function MovilesPage() {
                     const f = acc.latest?.seguidores
                     const g = acc.latest?.seguidoresGanados
                     return (
-                      <div key={acc.id} onClick={e => { e.stopPropagation(); router.push(`/crm/${channel}/estadisticas?cuenta=${encodeURIComponent(acc.username)}`) }} style={{
+                      <div key={acc.id} onClick={e => { e.stopPropagation(); setSelectedAccount(acc) }} style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '7px 9px', borderRadius: 8,
                         background: 'var(--surface2)',
@@ -728,6 +727,7 @@ export default function MovilesPage() {
         )
       })()}
 
+      {selectedAccount && <AccountStatsModal account={selectedAccount} onClose={() => setSelectedAccount(null)} />}
     </div>
   )
 }

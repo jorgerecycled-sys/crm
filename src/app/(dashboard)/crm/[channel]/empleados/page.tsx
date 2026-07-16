@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useAuthStore } from '@/store/auth'
+import { AccountStatsModal, type ModalAccount } from '@/components/crm/AccountStatsModal'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.', ',') + 'M'
@@ -19,14 +20,7 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
 
-interface Account {
-  id: string
-  username: string
-  status: string
-  model: string | null
-  employee: string | null
-  latest: { seguidores: number | null; seguidoresGanados: number | null } | null
-}
+type Account = ModalAccount
 
 interface EmpGroup {
   name: string
@@ -47,6 +41,7 @@ export default function EmpleadosPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [sort, setSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null)
   const [statusCycle, setStatusCycle] = useState(0)
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   useEffect(() => {
     const token = useAuthStore.getState().accessToken
     fetch('/api/crm/instagram/stats', {
@@ -253,7 +248,9 @@ export default function EmpleadosPage() {
                     const sColor = acc.status === 'active' ? '#34c759' : acc.status === 'suspended' ? '#e05252' : '#f5a623'
                     const sLabel = acc.status === 'active' ? 'Activa' : acc.status === 'suspended' ? 'Baneada' : acc.status === 'shadow banned' ? 'Warning' : acc.status
                     return (
-                      <tr key={acc.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <tr key={acc.id} onClick={() => setSelectedAccount(acc)} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                           @{acc.username}
                         </td>
@@ -285,6 +282,8 @@ export default function EmpleadosPage() {
           No hay datos de empleados. Añade el campo "Empleado" a las cuentas de Instagram.
         </div>
       )}
+
+      {selectedAccount && <AccountStatsModal account={selectedAccount} onClose={() => setSelectedAccount(null)} />}
     </div>
   )
 }
