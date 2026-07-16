@@ -7,14 +7,15 @@ export async function GET(req: NextRequest) {
   try {
     const authUser = await requireAuth(req)
     const isEmployee = authUser.roleName === 'Empleado'
+    const includePool = new URL(req.url).searchParams.get('includePool') === 'true'
 
     // ── 1. Accounts (lightweight, no nested joins) ────────────────────
     let accountsQuery = supabase
       .from('ig_accounts')
       .select('*, erp_users!ig_accounts_employeeId_fkey(id, firstName, lastName)')
-      .is('pool', null)
       .order('createdAt', { ascending: false })
       .range(0, 999)
+    if (!includePool) accountsQuery = accountsQuery.is('pool', null)
 
     if (isEmployee) accountsQuery = accountsQuery.eq('employeeId', authUser.sub)
 

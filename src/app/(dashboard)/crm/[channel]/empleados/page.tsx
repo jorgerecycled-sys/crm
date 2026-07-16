@@ -44,7 +44,7 @@ export default function EmpleadosPage() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   useEffect(() => {
     const token = useAuthStore.getState().accessToken
-    fetch('/api/crm/instagram/stats', {
+    fetch('/api/crm/instagram/stats?includePool=true', {
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     })
       .then(r => r.json())
