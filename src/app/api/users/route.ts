@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     // Build base queries
     let query = supabase
       .from('erp_users')
-      .select('*, roles(*), user_channel_access(*, crm_channels(*))')
+      .select('*, role:roles(*), user_channel_access(*, crm_channels(*))')
       .is('deletedAt', null)
 
     let countQuery = supabase
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     const { data: user, error: createError } = await supabase
       .from('erp_users')
       .insert({ id: newUserId, ...userData, passwordHash })
-      .select('*, roles(*), user_channel_access(*, crm_channels(*))')
+      .select('*, role:roles(*), user_channel_access(*, crm_channels(*))')
       .single()
 
     if (createError) throw createError
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
 
       const { data: userWithChannels, error: refetchError } = await supabase
         .from('erp_users')
-        .select('*, roles(*), user_channel_access(*, crm_channels(*))')
+        .select('*, role:roles(*), user_channel_access(*, crm_channels(*))')
         .eq('id', newUserId)
         .single()
 

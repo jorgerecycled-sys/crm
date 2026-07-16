@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { data: user, error } = await supabase
       .from('erp_users')
-      .select('*, roles(*), user_channel_access(*, crm_channels(*))')
+      .select('*, role:roles(*), user_channel_access(*, crm_channels(*))')
       .eq('id', id)
       .is('deletedAt', null)
       .maybeSingle()
@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .from('erp_users')
       .update(data)
       .eq('id', id)
-      .select('*, roles(*), user_channel_access(*, crm_channels(*))')
+      .select('*, role:roles(*), user_channel_access(*, crm_channels(*))')
       .single()
 
     if (updateError) throw updateError
