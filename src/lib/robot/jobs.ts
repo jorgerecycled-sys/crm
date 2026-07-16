@@ -261,6 +261,62 @@ export async function promoteNewAccounts(): Promise<Record<string, unknown>> {
   return { evaluated: accounts.length, promoted, alerted, accounts: details, threshold: NEW_ENGAGE_THRESHOLD, days: NEW_ACCOUNT_DAYS }
 }
 
+const POOL_EXPIRE_DAYS   = parseInt(process.env.POOL_EXPIRE_DAYS   ?? '3')
+const POOL_PROMOTE_GAIN  = parseInt(process.env.POOL_PROMOTE_GAIN  ?? '100')
+
+export async function evaluatePoolAccounts(): Promise<Record<string, unknown>> {
+  const { data: accounts, error: acErr } = await supabase
+    .from('ig_accounts')
+    .select('id, username, pool, status, poolAssignedAt, poolAssignedFollowers')
+    .not('pool', 'is', null)
+    .eq('status', 'pool_assigned')
+    .range(0, 999)
+  if (acErr?.code === '42703') return { evaluated: 0, promoted: 0, expired: 0, info: 'Columnas de pool no creadas aún. Ejecuta supabase/ig_pool_accounts.sql' }
+  if (acErr) throw acErr
+  if (!accounts?.length) return { evaluated: 0, promoted: 0, expired: 0, accounts: [] }
+
+  const ids = accounts.map(a => a.id)
+  const { data: latestMeas, error: mErr } = await supabase
+    .from('ig_measurements')
+    .select('accountId, fecha, seguidores')
+    .in('accountId', ids)
+    .order('fecha', { ascending: false })
+    .range(0, 9999)
+  if (mErr) throw mErr
+
+  const latestByAccount = new Map<string, number | null>()
+  for (const m of latestMeas ?? []) {
+    if (!latestByAccount.has(m.accountId)) latestByAccount.set(m.accountId, m.seguidores)
+  }
+
+  let promoted = 0, expired = 0
+  const details: { username: string; action: string; gain: number | null }[] = []
+  const now = Date.now()
+
+  for (const acc of accounts) {
+    const latest = latestByAccount.get(acc.id) ?? null
+    const base = acc.poolAssignedFollowers
+    const gain = latest !== null && base !== null ? latest - base : null
+
+    if (gain !== null && gain >= POOL_PROMOTE_GAIN) {
+      await supabase.from('ig_accounts').update({ pool: null, status: 'active' }).eq('id', acc.id)
+      promoted++
+      details.push({ username: acc.username, action: 'promoted', gain })
+      continue
+    }
+
+    const assignedAt = acc.poolAssignedAt ? new Date(acc.poolAssignedAt).getTime() : null
+    const daysAssigned = assignedAt ? (now - assignedAt) / 86400000 : 0
+    if (assignedAt && daysAssigned > POOL_EXPIRE_DAYS) {
+      await supabase.from('ig_accounts').update({ status: 'pool_expired' }).eq('id', acc.id)
+      expired++
+      details.push({ username: acc.username, action: 'expired', gain })
+    }
+  }
+
+  return { evaluated: accounts.length, promoted, expired, accounts: details, promoteGain: POOL_PROMOTE_GAIN, expireDays: POOL_EXPIRE_DAYS }
+}
+
 const REELS_REQUIRED = parseInt(process.env.REELS_REQUIRED ?? '2')
 
 export async function runReelCompliance(fecha?: string): Promise<Record<string, unknown>> {

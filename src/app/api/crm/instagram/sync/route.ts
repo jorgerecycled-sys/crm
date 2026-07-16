@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { requireAuth, handleApiError } from '@/lib/auth/middleware'
-import { promoteNewAccounts, runReelCompliance } from '@/lib/robot/jobs'
+import { promoteNewAccounts, runReelCompliance, evaluatePoolAccounts } from '@/lib/robot/jobs'
 
 export const maxDuration = 290
 
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
       byStatus[a.status] = (byStatus[a.status] ?? 0) + 1
     }
 
-    const syncable = (allAccounts ?? []).filter(a => ['active', 'new', 'shadow banned'].includes(a.status))
+    const syncable = (allAccounts ?? []).filter(a => ['active', 'new', 'shadow banned', 'pool_assigned'].includes(a.status))
 
     // Check which already have data today
     const { data: todayMeas } = syncable.length > 0
@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
     let accountsQuery = supabase
       .from('ig_accounts')
       .select('*')
-      .in('status', ['active', 'new', 'shadow banned'])
+      .in('status', ['active', 'new', 'shadow banned', 'pool_assigned'])
       .range(0, 1999)
     if (accountId) {
       accountsQuery = supabase.from('ig_accounts').select('*').eq('id', accountId)
@@ -329,6 +329,11 @@ export async function POST(req: NextRequest) {
     try { promotions = await promoteNewAccounts() }
     catch (e) { console.error('[ig-sync] promoteNewAccounts error:', e) }
 
+    // Evaluate pool accounts: promote if they gained enough followers, expire if the deadline passed
+    let poolEvaluation: Record<string, unknown> = {}
+    try { poolEvaluation = await evaluatePoolAccounts() }
+    catch (e) { console.error('[ig-sync] evaluatePoolAccounts error:', e) }
+
     // Reel compliance report for yesterday (only when sync ran as cron, not single-account)
     let reelCompliance: Record<string, unknown> = {}
     if (!accountId) {
@@ -340,7 +345,7 @@ export async function POST(req: NextRequest) {
       ok: true, procesadas, errores, total: pending.length,
       log: log.slice(0, 100),
       errorDetails: log.filter(l => l.status === 'error').map(l => `@${l.username}: ${l.error}`).slice(0, 20),
-      promotions, reelCompliance,
+      promotions, reelCompliance, poolEvaluation,
     })
   } catch (e) {
     console.error('[ig-sync]', e)

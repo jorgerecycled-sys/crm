@@ -80,6 +80,41 @@ export async function requireChannelAccess(
   return user
 }
 
+// Same "who has Instagram access" logic as /api/crm/channels/my: an explicit
+// user_channel_access row, OR (for Empleado) already having an assigned ig_accounts row.
+export async function requireInstagramAccess(req: NextRequest): Promise<JWTPayload> {
+  const user = await requireAuth(req)
+
+  const { data: channel, error: channelError } = await supabase
+    .from('crm_channels')
+    .select('id')
+    .eq('slug', 'instagram')
+    .eq('active', true)
+    .maybeSingle()
+  if (channelError) throw channelError
+  if (!channel) throw new AuthError('No access to this channel', 403)
+
+  const { data: access, error: accessError } = await supabase
+    .from('user_channel_access')
+    .select('*')
+    .eq('userId', user.sub)
+    .eq('channelId', channel.id)
+    .maybeSingle()
+  if (accessError) throw accessError
+  if (access) return user
+
+  if (user.roleName === 'Empleado') {
+    const { data: igCheck } = await supabase
+      .from('ig_accounts')
+      .select('id')
+      .eq('employeeId', user.sub)
+      .limit(1)
+    if (igCheck?.length) return user
+  }
+
+  throw new AuthError('No access to this channel', 403)
+}
+
 export class AuthError extends Error {
   constructor(
     message: string,

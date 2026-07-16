@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
     let accountsQuery = supabase
       .from('ig_accounts')
       .select('*, erp_users!ig_accounts_employeeId_fkey(id, firstName, lastName)')
+      .is('pool', null)
       .order('createdAt', { ascending: false })
       .range(0, 999)
 
