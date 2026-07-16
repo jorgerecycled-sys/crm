@@ -7,7 +7,9 @@ export async function GET(req: NextRequest) {
   try {
     const authUser = await requireAuth(req)
     const isEmployee = authUser.roleName === 'Empleado'
-    const includePool = new URL(req.url).searchParams.get('includePool') === 'true'
+    const { searchParams } = new URL(req.url)
+    const includePool = searchParams.get('includePool') === 'true'
+    const onlyPool = searchParams.get('pool') // e.g. 'jailbreak' — include normal accounts + this one pool
 
     // ── 1. Accounts (lightweight, no nested joins) ────────────────────
     let accountsQuery = supabase
@@ -15,7 +17,11 @@ export async function GET(req: NextRequest) {
       .select('*, erp_users!ig_accounts_employeeId_fkey(id, firstName, lastName)')
       .order('createdAt', { ascending: false })
       .range(0, 999)
-    if (!includePool) accountsQuery = accountsQuery.is('pool', null)
+    if (!includePool) {
+      accountsQuery = onlyPool
+        ? accountsQuery.or(`pool.is.null,pool.eq.${onlyPool}`)
+        : accountsQuery.is('pool', null)
+    }
 
     if (isEmployee) accountsQuery = accountsQuery.eq('employeeId', authUser.sub)
 
@@ -103,6 +109,8 @@ export async function GET(req: NextRequest) {
         status: acc.status,
         notes: acc.notes,
         model: acc.model,
+        pool: acc.pool ?? null,
+        origen: acc.pool === 'jailbreak' ? 'JailBreak' : acc.pool ? 'Pool' : 'Instagram',
         employeeId: acc.employeeId ?? null,
         employee: erpUser ? `${erpUser.firstName} ${erpUser.lastName}`.trim() : (acc.employee ?? null),
         phoneRef: acc.phoneRef,

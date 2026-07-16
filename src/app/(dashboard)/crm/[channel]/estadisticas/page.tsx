@@ -37,6 +37,7 @@ interface AccountData {
   posts: Post[]
   seguidores: number | null; mejorReel: number | null; nReels: number
   estadoCodigo: EstadoCodigo; engagement: number | null
+  pool: string | null; origen: 'Instagram' | 'JailBreak' | 'Pool'
 }
 interface StatsData {
   accounts: AccountData[]
@@ -235,6 +236,7 @@ function AccountModal({ account, onClose, channel }: { account: AccountData; onC
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>@{account.username}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: estadoColor + '22', color: estadoColor }}>{estadoLabel}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: account.origen === 'JailBreak' ? 'rgba(212,168,67,0.15)' : 'rgba(91,141,217,0.15)', color: account.origen === 'JailBreak' ? '#d4a843' : '#5b8dd9' }}>{account.origen}</span>
                 {account.model && <button onClick={(e) => { e.stopPropagation(); onClose(); router.push(`/crm/${channel}/modelos?modelo=${encodeURIComponent(account.model!)}`) }} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(212,168,67,0.15)', color: '#d4a843', cursor: 'pointer', border: 'none' }}>{account.model}</button>}
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
@@ -337,6 +339,8 @@ export default function EstadisticasPage() {
   const [diagLog, setDiagLog] = useState<Record<string, unknown> | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountData | null>(null)
   const [activeModel, setActiveModel] = useState<string>('all')
+  const [activeEmployee, setActiveEmployee] = useState<string>('all')
+  const [activeOrigen, setActiveOrigen] = useState<'all' | 'Instagram' | 'JailBreak'>('all')
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [newIncident, setNewIncident] = useState({ description: '', tipo: 'general', reportedBy: '', accountId: '' })
@@ -356,7 +360,7 @@ export default function EstadisticasPage() {
   const load = useCallback(() => {
     setLoading(true)
     const token = useAuthStore.getState().accessToken
-    fetch('/api/crm/instagram/stats', {
+    fetch('/api/crm/instagram/stats?pool=jailbreak', {
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     })
       .then(r => r.json())
@@ -549,11 +553,30 @@ export default function EstadisticasPage() {
     return [...new Set(accounts.map(a => a.model).filter(Boolean) as string[])].sort()
   }, [accounts])
 
+  // Employee list
+  const employees = useMemo(() => {
+    return [...new Set(accounts.map(a => a.employee).filter(Boolean) as string[])].sort()
+  }, [accounts])
+
   // Accounts in current view
-  const viewAccounts = useMemo(() =>
-    activeModel === 'all' ? accounts : accounts.filter(a => a.model === activeModel),
-    [accounts, activeModel]
-  )
+  const viewAccounts = useMemo(() => {
+    let rows = accounts
+    if (activeModel !== 'all') rows = rows.filter(a => a.model === activeModel)
+    if (activeEmployee !== 'all') rows = rows.filter(a => a.employee === activeEmployee)
+    if (activeOrigen !== 'all') rows = rows.filter(a => a.origen === activeOrigen)
+    return rows
+  }, [accounts, activeModel, activeEmployee, activeOrigen])
+
+  // Instagram vs JailBreak breakdown for whatever filter (model/employee) is active
+  const origenBreakdown = useMemo(() => {
+    const base = accounts.filter(a =>
+      (activeModel === 'all' || a.model === activeModel) &&
+      (activeEmployee === 'all' || a.employee === activeEmployee)
+    )
+    const instagram = base.filter(a => a.origen === 'Instagram').length
+    const jailbreak = base.filter(a => a.origen === 'JailBreak').length
+    return { instagram, jailbreak, total: base.length }
+  }, [accounts, activeModel, activeEmployee])
 
   // Table sorted/filtered
   const tableSorted = useMemo(() => {
@@ -570,6 +593,7 @@ export default function EstadisticasPage() {
         case 'movil': return (a.phoneRef ?? '').localeCompare(b.phoneRef ?? '') * d
         case 'cuenta': return a.username.localeCompare(b.username) * d
         case 'engagement': return ((a.engagement ?? -1) - (b.engagement ?? -1)) * d
+        case 'origen': return a.origen.localeCompare(b.origen) * d
         default: return (b.seguidores ?? 0) - (a.seguidores ?? 0)
       }
     })
@@ -1122,6 +1146,43 @@ export default function EstadisticasPage() {
             })}
           </div>
 
+          {/* Employee tabs */}
+          {employees.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['all', ...employees].map(e => {
+                const cnt = e === 'all' ? accounts.length : accounts.filter(a => a.employee === e).length
+                const active = activeEmployee === e
+                return (
+                  <button key={e} onClick={() => setActiveEmployee(e)} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#5b8dd9' : 'var(--surface)', color: active ? '#fff' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {e === 'all' ? 'Todos los empleados' : e}
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: active ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : 'var(--muted)' }}>{cnt}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Origen filter + breakdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['all', 'Instagram', 'JailBreak'] as const).map(o => {
+                const active = activeOrigen === o
+                return (
+                  <button key={o} onClick={() => setActiveOrigen(o)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#34c759' : 'var(--surface)', color: active ? '#000' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)' }}>
+                    {o === 'all' ? 'Todo origen' : o}
+                  </button>
+                )
+              })}
+            </div>
+            {(activeModel !== 'all' || activeEmployee !== 'all') && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Diferencia: <span style={{ color: '#e8ecf5', fontWeight: 700 }}>{origenBreakdown.instagram} Instagram</span>
+                {' · '}
+                <span style={{ color: '#d4a843', fontWeight: 700 }}>{origenBreakdown.jailbreak} JailBreak</span>
+              </span>
+            )}
+          </div>
+
           {/* Account table */}
           {!loading && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -1165,6 +1226,7 @@ export default function EstadisticasPage() {
                         { col: 'empleado', label: 'Empleado' },
                         { col: 'movil', label: 'Móvil' },
                         { col: 'engagement', label: 'Eng.' },
+                        { col: 'origen', label: 'Origen' },
                       ] as { col: string; label: string }[]).map(({ col, label }) => (
                         <th key={col} onClick={() => toggleSort(col)} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: tableSort?.col === col ? '#d4a843' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
                           {label}{sortArrow(col)}
@@ -1202,12 +1264,17 @@ export default function EstadisticasPage() {
                             <td style={{ padding: '9px 14px', fontWeight: 700, fontSize: 13, color: g !== null ? (g >= 0 ? '#34c759' : '#e05252') : 'var(--muted)' }}>
                               {g !== null ? `${g >= 0 ? '+' : ''}${fmt(g)}` : '—'}
                             </td>
-                            <td style={{ padding: '9px 14px', fontSize: 12, color: 'var(--muted)' }}>{acc.employee ?? '—'}</td>
+                            <td style={{ padding: '9px 14px' }}>
+                              {acc.employee ? <button onClick={(e) => { e.stopPropagation(); setActiveEmployee(acc.employee!) }} style={{ fontSize: 12, color: '#5b8dd9', cursor: 'pointer', background: 'none', border: 'none', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>{acc.employee}</button> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+                            </td>
                             <td style={{ padding: '9px 14px' }}>
                               {acc.phoneRef ? <button onClick={(e) => { e.stopPropagation(); router.push(`/crm/${channel}/moviles?movil=${encodeURIComponent(acc.phoneRef!)}`) }} style={{ fontSize: 12, color: '#5b8dd9', cursor: 'pointer', background: 'none', border: 'none', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>{acc.phoneRef}</button> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                             </td>
                             <td style={{ padding: '9px 14px', fontSize: 12, fontWeight: 700, color: engColor }}>
                               {acc.engagement !== null ? acc.engagement.toFixed(1) + '%' : '—'}
+                            </td>
+                            <td style={{ padding: '9px 14px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: acc.origen === 'JailBreak' ? 'rgba(212,168,67,0.15)' : 'rgba(91,141,217,0.15)', color: acc.origen === 'JailBreak' ? '#d4a843' : '#5b8dd9' }}>{acc.origen}</span>
                             </td>
                             <td style={{ padding: '9px 14px' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: sc + '22', color: sc }}>{sl}</span>
