@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
       today,
       totalAccounts: allAccounts?.length ?? 0,
       byStatus,
-      syncableStatuses: ['active', 'new', 'shadow banned'],
+      syncableStatuses: ['active', 'new', 'shadow banned', 'pool_assigned'],
       syncable: syncable.length,
       alreadySyncedToday: doneToday.size,
       pendingSync: pending.length,

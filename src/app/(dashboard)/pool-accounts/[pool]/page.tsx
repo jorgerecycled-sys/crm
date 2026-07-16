@@ -56,7 +56,6 @@ export default function PoolAccountsPage() {
   const { pool } = useParams<{ pool: string }>()
   const label = POOL_LABELS[pool] ?? pool
   const isJailbreak = pool === 'jailbreak'
-  const isAdmin = useAuthStore(s => s.user?.roleName === 'Admin' || s.user?.roleName === 'Super Admin')
   const myId = useAuthStore(s => s.user?.sub)
 
   const [accounts, setAccounts] = useState<PoolAccount[]>([])
@@ -218,7 +217,7 @@ export default function PoolAccountsPage() {
             Cuentas desechables · {available.length} disponibles · {mine.length} tuyas
           </p>
         </div>
-        {isAdmin && (
+        {isManager && (
           <label style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10,
             background: '#d4a843', color: '#000', fontWeight: 700, fontSize: 13, cursor: uploading ? 'not-allowed' : 'pointer',
