@@ -55,10 +55,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([])
-  const [withAccount, setWithAccount] = useState<EmployeeName[]>([])
   const [withoutAccount, setWithoutAccount] = useState<EmployeeName[]>([])
-  const [igNames, setIgNames] = useState<string[]>([])
-  const [linkSelects, setLinkSelects] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -80,16 +77,14 @@ export default function UsersPage() {
       fetchApi<{ id: string; name: string }[]>('/crm/channels'),
       fetch('/api/crm/instagram/employee-names', { headers: h })
         .then(r => r.json())
-        .catch(() => ({ withAccount: [], withoutAccount: [] })),
+        .catch(() => ({ withoutAccount: [] })),
     ])
       .then(([usersRes, rolesRes, channelsRes, empRes]) => {
         setUsers(usersRes.data)
         setRoles(rolesRes)
         setChannels(channelsRes)
-        const er = empRes as { withAccount: EmployeeName[]; withoutAccount: EmployeeName[]; igNames: string[] }
-        setWithAccount(er.withAccount ?? [])
+        const er = empRes as { withoutAccount: EmployeeName[] }
         setWithoutAccount(er.withoutAccount ?? [])
-        setIgNames(er.igNames ?? [])
       })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -104,25 +99,6 @@ export default function UsersPage() {
     setValue('email', emp.email ?? '')
     const empleadoRole = roles.find(r => r.name === 'Empleado')
     if (empleadoRole) setValue('roleId', empleadoRole.id)
-  }
-
-  async function linkAccounts(userId: string, name: string) {
-    const token = useAuthStore.getState().accessToken
-    try {
-      const res = await fetch('/api/crm/instagram/employee-names', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, name }),
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error ?? 'Error')
-      if (d.linked === 0) {
-        toast(`0 cuentas encontradas con empleado = "${name}". Comprueba que el nombre coincide exactamente.`, 'error')
-      } else {
-        toast(`${d.linked} cuenta${d.linked !== 1 ? 's' : ''} IG conectada${d.linked !== 1 ? 's' : ''} a ${name}`, 'success')
-      }
-      fetchData()
-    } catch (e) { toast((e as Error).message, 'error') }
   }
 
   function openCreateForEmployee(emp: EmployeeName) {
@@ -291,61 +267,6 @@ export default function UsersPage() {
                   style={{ background: '#6272e4', border: 'none', borderRadius: 7, color: '#fff', fontSize: 12, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
                 >
                   + Crear cuenta
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Con acceso: conectar empleado → cuentas IG ──────────────── */}
-      {!loading && withAccount.length > 0 && (
-        <div style={{ background: '#0c0f1e', border: '1px solid #1a1f38', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <UserCheck size={15} style={{ color: '#1fad6e' }} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#e8ecf5' }}>Empleados con acceso</span>
-            <span style={{ fontSize: 11, background: '#1fad6e22', color: '#1fad6e', border: '1px solid #1fad6e44', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>
-              {withAccount.length}
-            </span>
-          </div>
-          <p style={{ fontSize: 11, color: '#5a6480', marginBottom: 14 }}>
-            Selecciona a qué empleado de las cuentas IG corresponde cada usuario y pulsa Conectar.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {withAccount.map(emp => (
-              <div key={emp.id!} style={{ background: '#111628', border: `1px solid ${emp.linkedAccounts > 0 ? '#1fad6e33' : '#1c2240'}`, borderRadius: 9, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* Avatar */}
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1fad6e18', border: '1px solid #1fad6e44', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#1fad6e', flexShrink: 0 }}>
-                  {emp.firstName.slice(0, 1)}{emp.lastName ? emp.lastName.slice(0, 1) : ''}
-                </div>
-                {/* Name + count */}
-                <div style={{ minWidth: 130, flexShrink: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#e8ecf5' }}>{emp.name}</div>
-                  <div style={{ fontSize: 10, color: emp.linkedAccounts > 0 ? '#1fad6e' : '#5a6480', fontWeight: 600 }}>
-                    {emp.linkedAccounts > 0 ? `✓ ${emp.linkedAccounts} cuentas IG` : 'Sin cuentas IG'}
-                  </div>
-                </div>
-                {/* Select employee name from IG */}
-                <select
-                  value={linkSelects[emp.id!] ?? ''}
-                  onChange={e => setLinkSelects(prev => ({ ...prev, [emp.id!]: e.target.value }))}
-                  style={{ flex: 1, background: '#0d1124', border: '1px solid #1c2240', borderRadius: 7, color: '#e8ecf5', padding: '7px 10px', fontSize: 12, colorScheme: 'dark', cursor: 'pointer' }}
-                >
-                  <option value="">— Selecciona empleado en cuentas IG —</option>
-                  {igNames.map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                {/* Connect button */}
-                <button
-                  disabled={!linkSelects[emp.id!]}
-                  onClick={() => {
-                    linkAccounts(emp.id!, linkSelects[emp.id!])
-                    setLinkSelects(prev => ({ ...prev, [emp.id!]: '' }))
-                  }}
-                  style={{ background: linkSelects[emp.id!] ? '#6272e4' : '#1c2240', border: 'none', borderRadius: 7, color: linkSelects[emp.id!] ? '#fff' : '#3a4464', fontSize: 12, fontWeight: 700, padding: '7px 14px', cursor: linkSelects[emp.id!] ? 'pointer' : 'default', whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 0.15s' }}
-                >
-                  Conectar
                 </button>
               </div>
             ))}

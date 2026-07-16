@@ -70,30 +70,3 @@ export async function GET(req: NextRequest) {
     return handleApiError(e)
   }
 }
-
-// POST: retroactively link ig_accounts by employee name to an erp_user
-export async function POST(req: NextRequest) {
-  try {
-    await requireAuth(req)
-    const { userId, name } = await req.json()
-    if (!userId || !name) return NextResponse.json({ error: 'userId y name requeridos' }, { status: 400 })
-
-    // Update all accounts with this employee name (overwrite any previous link)
-    const { data, error } = await supabase
-      .from('ig_accounts')
-      .update({ employeeId: userId, employee: name })
-      .eq('employee', name)
-      .select('id')
-
-    if (error) {
-      // Column may not exist yet — return helpful error
-      if (error.code === '42703' || error.code === '42P01') {
-        return NextResponse.json({ error: 'Ejecuta el SQL de migración en Supabase primero (supabase/account_employee_link.sql)', code: 'MISSING_COLUMN' }, { status: 400 })
-      }
-      throw error
-    }
-    return NextResponse.json({ ok: true, linked: data?.length ?? 0, name })
-  } catch (e) {
-    return handleApiError(e)
-  }
-}
