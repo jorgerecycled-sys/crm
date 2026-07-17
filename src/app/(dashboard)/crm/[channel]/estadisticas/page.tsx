@@ -530,9 +530,13 @@ export default function EstadisticasPage() {
 
   // Active + new accounts — used everywhere else (totals, charts, table, model breakdown).
   // Employees see all of their own accounts regardless of status (active, new, blocked, etc.)
+  // Pool accounts (JailBreak/Pool Accounts) never carry 'active'/'new' — they use
+  // pool_available/pool_assigned/pool_expired instead — so they're let through by
+  // `pool` alone, on any status, otherwise the JailBreak origin filter can never
+  // show anything for non-Empleado users.
   const accounts = useMemo(() => {
     if (isEmpleado) return allAccounts
-    return allAccounts.filter(a => a.status === 'active' || a.status === 'new')
+    return allAccounts.filter(a => a.status === 'active' || a.status === 'new' || a.pool != null)
   }, [allAccounts, isEmpleado])
 
   // Recomputed from the active-only account list
@@ -1378,7 +1382,7 @@ export default function EstadisticasPage() {
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Sin asignar</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--muted)' }}>{loading ? '…' : totalCount - igStatus.activas - igStatus.shadow - igStatus.suspendidas}</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--muted)' }}>{loading ? '…' : Math.max(0, allAccounts.length - igStatus.activas - igStatus.shadow - igStatus.suspendidas)}</span>
             </div>
           </div>
 
