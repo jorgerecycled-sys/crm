@@ -358,6 +358,17 @@ export default function EstadisticasPage() {
   const [dismissals, setDismissals] = useState<Map<string, string>>(new Map())
   const [dismissing, setDismissing] = useState(false)
 
+  // Switching model/employee/origen can make the table's own "Estado" cycle
+  // filter (independent of these) intersect to zero results — e.g. JailBreak
+  // accounts never carry the active/suspended/shadow-banned statuses that
+  // cycle targets, since they use pool_assigned/pool_expired instead — so
+  // clear it whenever a top-level filter changes.
+  function resetTableFilters() {
+    setTableStatusCycle(0)
+    setTableSort(null)
+    setTablePage(0)
+  }
+
   const load = useCallback(() => {
     setLoading(true)
     const token = useAuthStore.getState().accessToken
@@ -1139,7 +1150,7 @@ export default function EstadisticasPage() {
               const cnt = m === 'all' ? accounts.length : accounts.filter(a => a.model === m).length
               const active = activeModel === m
               return (
-                <button key={m} onClick={() => setActiveModel(m)} style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#d4a843' : 'var(--surface)', color: active ? '#000' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button key={m} onClick={() => { setActiveModel(m); resetTableFilters() }} style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#d4a843' : 'var(--surface)', color: active ? '#000' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
                   {m === 'all' ? 'Todos' : m}
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: active ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.06)', color: active ? '#000' : 'var(--muted)' }}>{cnt}</span>
                 </button>
@@ -1154,7 +1165,7 @@ export default function EstadisticasPage() {
                 const cnt = e.id === 'all' ? accounts.length : accounts.filter(a => a.employeeId === e.id).length
                 const active = activeEmployee === e.id
                 return (
-                  <button key={e.id} onClick={() => setActiveEmployee(e.id)} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#5b8dd9' : 'var(--surface)', color: active ? '#fff' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button key={e.id} onClick={() => { setActiveEmployee(e.id); resetTableFilters() }} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#5b8dd9' : 'var(--surface)', color: active ? '#fff' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {e.name}
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: active ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : 'var(--muted)' }}>{cnt}</span>
                   </button>
@@ -1169,7 +1180,7 @@ export default function EstadisticasPage() {
               {(['all', 'Instagram', 'JailBreak'] as const).map(o => {
                 const active = activeOrigen === o
                 return (
-                  <button key={o} onClick={() => setActiveOrigen(o)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#34c759' : 'var(--surface)', color: active ? '#000' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)' }}>
+                  <button key={o} onClick={() => { setActiveOrigen(o); resetTableFilters() }} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#34c759' : 'var(--surface)', color: active ? '#000' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)' }}>
                     {o === 'all' ? 'Todo origen' : o}
                   </button>
                 )
@@ -1245,8 +1256,10 @@ export default function EstadisticasPage() {
                     {tablePageData.map((acc, i) => {
                         const f = acc.seguidores
                         const g = acc.latest?.seguidoresGanados ?? null
-                        const sc = acc.status === 'active' ? '#34c759' : acc.status === 'suspended' ? '#e05252' : '#f5a623'
-                        const sl = acc.status === 'active' ? 'Activa' : acc.status === 'suspended' ? 'Baneada' : acc.status === 'shadow banned' ? 'Warning' : acc.status
+                        const sc = acc.status === 'active' ? '#34c759' : acc.status === 'suspended' ? '#e05252'
+                          : acc.status === 'pool_assigned' ? '#5b8dd9' : acc.status === 'pool_available' ? '#d4a843' : acc.status === 'pool_expired' ? '#6b7280' : '#f5a623'
+                        const sl = acc.status === 'active' ? 'Activa' : acc.status === 'suspended' ? 'Baneada' : acc.status === 'shadow banned' ? 'Warning'
+                          : acc.status === 'pool_assigned' ? 'Asignada' : acc.status === 'pool_available' ? 'Disponible' : acc.status === 'pool_expired' ? 'Expirada' : acc.status
                         const engColor = acc.engagement !== null ? (acc.engagement >= 3 ? '#34c759' : acc.engagement >= 1 ? '#f5a623' : '#6b7280') : '#2a3450'
                         return (
                           <tr key={acc.id} onClick={() => setSelectedAccount(acc)} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
