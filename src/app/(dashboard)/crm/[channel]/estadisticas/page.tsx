@@ -29,7 +29,7 @@ interface Post {
 }
 interface AccountData {
   id: string; username: string; igId: string | null; status: string; notes: string | null
-  model: string | null; employee: string | null; phoneRef: string | null
+  model: string | null; employee: string | null; employeeId: string | null; phoneRef: string | null
   igType: string | null; niche: string | null; grupo: string | null; igCreatedOn: string | null
   createdAt: string
   latest: Measurement | null; prev: Measurement | null
@@ -339,7 +339,8 @@ export default function EstadisticasPage() {
   const [diagLog, setDiagLog] = useState<Record<string, unknown> | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountData | null>(null)
   const [activeModel, setActiveModel] = useState<string>('all')
-  const [activeEmployee, setActiveEmployee] = useState<string>('all')
+  const [activeEmployee, setActiveEmployee] = useState<string>('all') // employeeId, or 'all'
+  const [realEmployees, setRealEmployees] = useState<{ id: string; name: string }[]>([])
   const [activeOrigen, setActiveOrigen] = useState<'all' | 'Instagram' | 'JailBreak'>('all')
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
@@ -360,11 +361,16 @@ export default function EstadisticasPage() {
   const load = useCallback(() => {
     setLoading(true)
     const token = useAuthStore.getState().accessToken
-    fetch('/api/crm/instagram/stats?pool=jailbreak', {
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+    const h = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    Promise.all([
+      fetch('/api/crm/instagram/stats?pool=jailbreak', { headers: h }).then(r => r.json()),
+      fetch('/api/crm/instagram/employee-names', { headers: h }).then(r => r.json()).catch(() => ({ withAccount: [] })),
+    ])
+      .then(([d, empNames]) => {
+        setData(d)
+        setRealEmployees((empNames.withAccount ?? []).map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 
@@ -553,16 +559,11 @@ export default function EstadisticasPage() {
     return [...new Set(accounts.map(a => a.model).filter(Boolean) as string[])].sort()
   }, [accounts])
 
-  // Employee list
-  const employees = useMemo(() => {
-    return [...new Set(accounts.map(a => a.employee).filter(Boolean) as string[])].sort()
-  }, [accounts])
-
   // Accounts in current view
   const viewAccounts = useMemo(() => {
     let rows = accounts
     if (activeModel !== 'all') rows = rows.filter(a => a.model === activeModel)
-    if (activeEmployee !== 'all') rows = rows.filter(a => a.employee === activeEmployee)
+    if (activeEmployee !== 'all') rows = rows.filter(a => a.employeeId === activeEmployee)
     if (activeOrigen !== 'all') rows = rows.filter(a => a.origen === activeOrigen)
     return rows
   }, [accounts, activeModel, activeEmployee, activeOrigen])
@@ -571,7 +572,7 @@ export default function EstadisticasPage() {
   const origenBreakdown = useMemo(() => {
     const base = accounts.filter(a =>
       (activeModel === 'all' || a.model === activeModel) &&
-      (activeEmployee === 'all' || a.employee === activeEmployee)
+      (activeEmployee === 'all' || a.employeeId === activeEmployee)
     )
     const instagram = base.filter(a => a.origen === 'Instagram').length
     const jailbreak = base.filter(a => a.origen === 'JailBreak').length
@@ -1146,15 +1147,15 @@ export default function EstadisticasPage() {
             })}
           </div>
 
-          {/* Employee tabs */}
-          {employees.length > 0 && (
+          {/* Employee tabs — sourced from Usuarios (erp_users), matched by employeeId */}
+          {realEmployees.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {['all', ...employees].map(e => {
-                const cnt = e === 'all' ? accounts.length : accounts.filter(a => a.employee === e).length
-                const active = activeEmployee === e
+              {[{ id: 'all', name: 'Todos los empleados' }, ...realEmployees].map(e => {
+                const cnt = e.id === 'all' ? accounts.length : accounts.filter(a => a.employeeId === e.id).length
+                const active = activeEmployee === e.id
                 return (
-                  <button key={e} onClick={() => setActiveEmployee(e)} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#5b8dd9' : 'var(--surface)', color: active ? '#fff' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {e === 'all' ? 'Todos los empleados' : e}
+                  <button key={e.id} onClick={() => setActiveEmployee(e.id)} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer', background: active ? '#5b8dd9' : 'var(--surface)', color: active ? '#fff' : 'var(--muted)', border: active ? 'none' : '1px solid var(--border)', transition: 'all 0.12s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {e.name}
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: active ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : 'var(--muted)' }}>{cnt}</span>
                   </button>
                 )
@@ -1265,7 +1266,7 @@ export default function EstadisticasPage() {
                               {g !== null ? `${g >= 0 ? '+' : ''}${fmt(g)}` : '—'}
                             </td>
                             <td style={{ padding: '9px 14px' }}>
-                              {acc.employee ? <button onClick={(e) => { e.stopPropagation(); setActiveEmployee(acc.employee!) }} style={{ fontSize: 12, color: '#5b8dd9', cursor: 'pointer', background: 'none', border: 'none', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>{acc.employee}</button> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+                              {acc.employeeId ? <button onClick={(e) => { e.stopPropagation(); setActiveEmployee(acc.employeeId!) }} style={{ fontSize: 12, color: '#5b8dd9', cursor: 'pointer', background: 'none', border: 'none', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>{acc.employee}</button> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>{acc.employee ?? '—'}</span>}
                             </td>
                             <td style={{ padding: '9px 14px' }}>
                               {acc.phoneRef ? <button onClick={(e) => { e.stopPropagation(); router.push(`/crm/${channel}/moviles?movil=${encodeURIComponent(acc.phoneRef!)}`) }} style={{ fontSize: 12, color: '#5b8dd9', cursor: 'pointer', background: 'none', border: 'none', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>{acc.phoneRef}</button> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
