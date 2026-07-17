@@ -79,12 +79,14 @@ const STATS_SUBMENU = [
   { label: 'Empleados',      href: 'empleados', icon: UserCheck },
 ]
 
-const POOL_ACCOUNTS_SUBMENU = [
+const JAILBREAK_ACCOUNTS_SUBMENU = [
   { label: 'JailBreak',     href: 'jailbreak' },
   { label: 'Pool Accounts', href: 'pool' },
 ]
 
-function PoolAccountsMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+// Nested one level deeper than a normal channel sub-item — lives inside the
+// Instagram channel's own submenu, not as a sidebar top-level section.
+function JailBreakAccountsGroup({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const isActive = pathname.startsWith('/pool-accounts')
   const [open, setOpen] = useState(isActive)
@@ -94,30 +96,24 @@ function PoolAccountsMenu({ collapsed, onNavigate }: { collapsed: boolean; onNav
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+          'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-all duration-150',
           isActive
-            ? 'text-sidebar-foreground font-medium'
-            : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50',
-          collapsed && 'justify-center px-2'
+            ? 'text-sidebar-primary font-medium bg-sidebar-primary/10'
+            : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
         )}
-        title={collapsed ? 'Cuentas Pool' : undefined}
       >
-        <Layers className="w-4 h-4 shrink-0" />
-        {!collapsed && (
-          <>
-            <span className="flex-1 text-left truncate">Cuentas Pool</span>
-            {open ? (
-              <ChevronDown className="w-3.5 h-3.5 text-sidebar-foreground/50" />
-            ) : (
-              <ChevronRight className="w-3.5 h-3.5 text-sidebar-foreground/50" />
-            )}
-          </>
+        <Layers className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1 text-left truncate">JailBreak Accounts</span>
+        {open ? (
+          <ChevronDown className="w-3 h-3 text-sidebar-foreground/50" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-sidebar-foreground/50" />
         )}
       </button>
 
-      {open && !collapsed && (
+      {open && (
         <div className="ml-4 mt-0.5 border-l border-sidebar-border pl-3 space-y-0.5">
-          {POOL_ACCOUNTS_SUBMENU.map((item) => {
+          {JAILBREAK_ACCOUNTS_SUBMENU.map((item) => {
             const href = `/pool-accounts/${item.href}`
             const isItemActive = pathname === href || pathname.startsWith(href + '/')
             return (
@@ -238,6 +234,9 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
               </Link>
             )
           })}
+          {channel.slug === 'instagram' && (
+            <JailBreakAccountsGroup onNavigate={onNavigate} />
+          )}
         </div>
       )}
     </div>
@@ -306,11 +305,6 @@ export default function Sidebar() {
               ))}
             </div>
           </div>
-        )}
-
-        {/* Cuentas Pool — visible para todo el que tenga acceso al canal Instagram */}
-        {channels.some(c => c.slug === 'instagram') && (
-          <PoolAccountsMenu collapsed={sidebarCollapsed} onNavigate={closeMobileSidebar} />
         )}
 
         {/* Incidencias y Mejoras — visible para todos los roles */}
