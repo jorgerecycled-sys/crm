@@ -20,9 +20,18 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
 
-type Account = ModalAccount
+interface Account extends ModalAccount {
+  employeeId: string | null
+}
+
+interface RealEmployee {
+  id: string
+  name: string
+  linkedAccounts: number
+}
 
 interface EmpGroup {
+  id: string | null
   name: string
   color: string
   accounts: Account[]
@@ -37,29 +46,44 @@ interface EmpGroup {
 
 export default function EmpleadosPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [employees, setEmployees] = useState<RealEmployee[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
   const [sort, setSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null)
   const [statusCycle, setStatusCycle] = useState(0)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
+
   useEffect(() => {
     const token = useAuthStore.getState().accessToken
-    fetch('/api/crm/instagram/stats?includePool=true', {
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
-      .then(r => r.json())
-      .then(d => { setAccounts(d.accounts ?? []); setLoading(false) })
+    const h = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    Promise.all([
+      fetch('/api/crm/instagram/stats?includePool=true', { headers: h }).then(r => r.json()),
+      fetch('/api/crm/instagram/employee-names', { headers: h }).then(r => r.json()).catch(() => ({ withAccount: [] })),
+    ])
+      .then(([stats, empNames]) => {
+        setAccounts(stats.accounts ?? [])
+        setEmployees((empNames.withAccount ?? []).map((e: { id: string; name: string; linkedAccounts: number }) => ({ id: e.id, name: e.name, linkedAccounts: e.linkedAccounts })))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 
+  // Groups mirror the real employees in Usuarios (matched by employeeId, not
+  // by the free-text `employee` name) — an employee with zero accounts still
+  // shows up, and accounts nobody has claimed land in a separate bucket.
   const groups = useMemo<EmpGroup[]>(() => {
-    const map = new Map<string, Account[]>()
+    const byEmployeeId = new Map<string, Account[]>()
+    const unassigned: Account[] = []
     for (const a of accounts) {
-      const key = a.employee ?? '(Sin empleado)'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(a)
+      if (a.employeeId) {
+        if (!byEmployeeId.has(a.employeeId)) byEmployeeId.set(a.employeeId, [])
+        byEmployeeId.get(a.employeeId)!.push(a)
+      } else {
+        unassigned.push(a)
+      }
     }
-    return Array.from(map.entries()).map(([name, accs], idx) => {
+
+    function buildGroup(id: string | null, name: string, accs: Account[]): EmpGroup {
       const active = accs.filter(a => a.status === 'active').length
       const suspended = accs.filter(a => a.status === 'suspended').length
       const shadow = accs.filter(a => a.status === 'shadow banned').length
@@ -68,13 +92,21 @@ export default function EmpleadosPage() {
       const ganadosList = accs.map(a => a.latest?.seguidoresGanados).filter((g): g is number => g !== null)
       const ganados = ganadosList.reduce((s, g) => s + g, 0)
       const hasGanados = ganadosList.length > 0
-      return { name, color: avatarColor(name), accounts: accs, totalFollowers, ganados, hasGanados, active, suspended, shadow, otros }
-    }).sort((a, b) => b.totalFollowers - a.totalFollowers)
-  }, [accounts])
+      return { id, name, color: avatarColor(name), accounts: accs, totalFollowers, ganados, hasGanados, active, suspended, shadow, otros }
+    }
+
+    const employeeGroups = employees
+      .map(emp => buildGroup(emp.id, emp.name, byEmployeeId.get(emp.id) ?? []))
+      .sort((a, b) => b.totalFollowers - a.totalFollowers)
+
+    const groups = [...employeeGroups]
+    if (unassigned.length > 0) groups.push(buildGroup(null, '(Sin asignar)', unassigned))
+    return groups
+  }, [accounts, employees])
 
   const totalFollowers = groups.reduce((s, g) => s + g.totalFollowers, 0)
 
-  const selGroup = selected ? groups.find(g => g.name === selected) : null
+  const selGroup = selected ? groups.find(g => (g.id ?? '(Sin asignar)') === selected) : null
 
   const sortedAccounts = useMemo(() => {
     if (!selGroup) return []
@@ -118,7 +150,7 @@ export default function EmpleadosPage() {
       <div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>Empleados</h1>
         <p style={{ color: 'var(--muted)', margin: '4px 0 0', fontSize: 13 }}>
-          {groups.length} empleados · {accounts.length} cuentas · {fmt(totalFollowers)} seguidores totales
+          {employees.length} empleados · {accounts.length} cuentas · {fmt(totalFollowers)} seguidores totales
         </p>
       </div>
 
@@ -126,16 +158,18 @@ export default function EmpleadosPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
         {groups.map(g => {
           const pctActive = g.accounts.length > 0 ? (g.active / g.accounts.length) * 100 : 0
-          const isSelected = selected === g.name
+          const groupKey = g.id ?? '(Sin asignar)'
+          const isSelected = selected === groupKey
           return (
             <div
-              key={g.name}
-              onClick={() => { setSelected(isSelected ? null : g.name); setSort(null); setStatusCycle(0) }}
+              key={groupKey}
+              onClick={() => { setSelected(isSelected ? null : groupKey); setSort(null); setStatusCycle(0) }}
               style={{
                 background: 'var(--surface)', border: `1px solid ${isSelected ? g.color : 'var(--border)'}`,
                 borderRadius: 14, padding: 18, cursor: 'pointer',
                 transition: 'border-color 0.15s',
                 display: 'flex', flexDirection: 'column', gap: 14,
+                opacity: g.id === null ? 0.7 : 1,
               }}
             >
               {/* Header */}
@@ -174,25 +208,29 @@ export default function EmpleadosPage() {
               )}
 
               {/* Status breakdown */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--muted)' }}>
-                  <span>{g.active} activas</span>
-                  {g.suspended > 0 && <span style={{ color: '#e05252' }}>{g.suspended} baneadas</span>}
-                  {g.shadow > 0 && <span style={{ color: '#f5a623' }}>{g.shadow} warning</span>}
-                  {g.otros > 0 && <span>{g.otros} otras</span>}
+              {g.accounts.length > 0 ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--muted)' }}>
+                    <span>{g.active} activas</span>
+                    {g.suspended > 0 && <span style={{ color: '#e05252' }}>{g.suspended} baneadas</span>}
+                    {g.shadow > 0 && <span style={{ color: '#f5a623' }}>{g.shadow} warning</span>}
+                    {g.otros > 0 && <span>{g.otros} otras</span>}
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{ height: 4, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+                    <div style={{ height: '100%', width: `${(g.active / g.accounts.length) * 100}%`, background: '#34c759', transition: 'width 0.3s' }} />
+                    <div style={{ height: '100%', width: `${(g.shadow / g.accounts.length) * 100}%`, background: '#f5a623', transition: 'width 0.3s' }} />
+                    <div style={{ height: '100%', width: `${(g.suspended / g.accounts.length) * 100}%`, background: '#e05252', transition: 'width 0.3s' }} />
+                  </div>
                 </div>
-                {/* Progress bar */}
-                <div style={{ height: 4, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
-                  <div style={{ height: '100%', width: `${(g.active / g.accounts.length) * 100}%`, background: '#34c759', transition: 'width 0.3s' }} />
-                  <div style={{ height: '100%', width: `${(g.shadow / g.accounts.length) * 100}%`, background: '#f5a623', transition: 'width 0.3s' }} />
-                  <div style={{ height: '100%', width: `${(g.suspended / g.accounts.length) * 100}%`, background: '#e05252', transition: 'width 0.3s' }} />
-                </div>
-              </div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Sin cuentas asignadas todavía</div>
+              )}
 
               {/* Pct active badge */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  {Math.round(pctActive)}% cuentas activas
+                  {g.accounts.length > 0 ? `${Math.round(pctActive)}% cuentas activas` : ' '}
                 </span>
                 <span style={{ fontSize: 11, color: g.color, fontWeight: 600 }}>
                   {isSelected ? 'Ocultar ▲' : 'Ver cuentas ▼'}
@@ -277,9 +315,9 @@ export default function EmpleadosPage() {
         </div>
       )}
 
-      {groups.length === 0 && (
+      {employees.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '80px 20px', fontSize: 15 }}>
-          No hay datos de empleados. Añade el campo "Empleado" a las cuentas de Instagram.
+          No hay empleados dados de alta en Usuarios todavía.
         </div>
       )}
 
