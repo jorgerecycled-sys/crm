@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { requireInstagramAccess, requirePermission, handleApiError, apiResponse } from '@/lib/auth/middleware'
 import { calcAccountMetrics } from '@/lib/instagram/metrics'
+import { inChunks } from '@/lib/supabase/chunked'
 
 const POOLS = ['jailbreak', 'pool'] as const
 
@@ -40,28 +41,32 @@ export async function GET(req: NextRequest) {
 
     const ids = accounts.map(a => a.id)
     const cutoff = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const { data: allMeasurements } = await supabase
-      .from('ig_measurements')
-      .select('accountId, fecha, seguidores, siguiendo, seguidoresGanados, reproduccionesTotal, postsHoy, reelsHoy, likesDia, comentariosDia')
-      .in('accountId', ids)
-      .gte('fecha', cutoff)
-      .order('fecha', { ascending: false })
-      .range(0, 9999)
-    const { data: allPosts } = await supabase
-      .from('ig_posts')
-      .select('accountId, id, shortcode, tipo, fechaPub, visitas, likes, comentarios')
-      .in('accountId', ids)
-      .order('fechaPub', { ascending: false })
-      .range(0, 9999)
+    const allMeasurements = await inChunks(ids, (chunk) =>
+      supabase
+        .from('ig_measurements')
+        .select('accountId, fecha, seguidores, siguiendo, seguidoresGanados, reproduccionesTotal, postsHoy, reelsHoy, likesDia, comentariosDia')
+        .in('accountId', chunk)
+        .gte('fecha', cutoff)
+        .order('fecha', { ascending: false })
+        .range(0, 9999)
+    )
+    const allPosts = await inChunks(ids, (chunk) =>
+      supabase
+        .from('ig_posts')
+        .select('accountId, id, shortcode, tipo, fechaPub, visitas, likes, comentarios')
+        .in('accountId', chunk)
+        .order('fechaPub', { ascending: false })
+        .range(0, 9999)
+    )
 
     const measurementMap = new Map<string, typeof allMeasurements>()
-    for (const m of allMeasurements ?? []) {
+    for (const m of allMeasurements) {
       const arr = measurementMap.get(m.accountId) ?? []
       arr.push(m)
       measurementMap.set(m.accountId, arr)
     }
     const postMap = new Map<string, typeof allPosts>()
-    for (const p of allPosts ?? []) {
+    for (const p of allPosts) {
       const arr = postMap.get(p.accountId) ?? []
       arr.push(p)
       postMap.set(p.accountId, arr)

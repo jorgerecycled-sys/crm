@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { requireAuth, handleApiError } from '@/lib/auth/middleware'
 import { promoteNewAccounts, runReelCompliance, evaluatePoolAccounts } from '@/lib/robot/jobs'
+import { inChunks } from '@/lib/supabase/chunked'
 
 export const maxDuration = 290
 
@@ -152,11 +153,11 @@ export async function GET(req: NextRequest) {
     const syncable = (allAccounts ?? []).filter(a => ['active', 'new', 'shadow banned', 'pool_assigned'].includes(a.status))
 
     // Check which already have data today
-    const { data: todayMeas } = syncable.length > 0
-      ? await supabase.from('ig_measurements').select('accountId').eq('fecha', today).in('accountId', syncable.map(a => a.id))
-      : { data: [] }
+    const todayMeas = await inChunks(syncable.map(a => a.id), (chunk) =>
+      supabase.from('ig_measurements').select('accountId').eq('fecha', today).in('accountId', chunk)
+    )
 
-    const doneToday = new Set((todayMeas ?? []).map(m => m.accountId))
+    const doneToday = new Set(todayMeas.map(m => m.accountId))
     const pending = syncable.filter(a => !doneToday.has(a.id))
 
     return NextResponse.json({
@@ -219,13 +220,10 @@ export async function POST(req: NextRequest) {
     let pending = allAccounts ?? []
 
     if (!force) {
-      const { data: todayMeas, error: todayMeasError } = await supabase
-        .from('ig_measurements')
-        .select('accountId')
-        .eq('fecha', today)
-        .in('accountId', (allAccounts ?? []).map((a) => a.id))
-      if (todayMeasError) throw todayMeasError
-      const done = new Set((todayMeas ?? []).map((m) => m.accountId))
+      const todayMeas = await inChunks((allAccounts ?? []).map((a) => a.id), (chunk) =>
+        supabase.from('ig_measurements').select('accountId').eq('fecha', today).in('accountId', chunk)
+      )
+      const done = new Set(todayMeas.map((m) => m.accountId))
       pending = pending.filter((a) => !done.has(a.id))
     }
 
@@ -233,14 +231,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, procesadas: 0, errores: 0, info: 'Todas las cuentas ya tienen datos de hoy.' })
     }
 
-    const { data: yMeasData, error: yMeasError } = await supabase
-      .from('ig_measurements')
-      .select('accountId, seguidores')
-      .eq('fecha', yesterday)
-      .in('accountId', pending.map((a) => a.id))
-    if (yMeasError) throw yMeasError
+    const yMeasData = await inChunks(pending.map((a) => a.id), (chunk) =>
+      supabase.from('ig_measurements').select('accountId, seguidores').eq('fecha', yesterday).in('accountId', chunk)
+    )
     const yMap = new Map<string, number>()
-    for (const m of yMeasData ?? []) if (m.seguidores !== null) yMap.set(m.accountId, m.seguidores)
+    for (const m of yMeasData) if (m.seguidores !== null) yMap.set(m.accountId, m.seguidores)
 
     let procesadas = 0, errores = 0
     const log: { username: string; status: string; followers?: number; error?: string }[] = []

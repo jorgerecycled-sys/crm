@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { requireAuth, handleApiError, apiResponse } from '@/lib/auth/middleware'
+import { inChunks } from '@/lib/supabase/chunked'
 
 const REELS_REQUIRED = parseInt(process.env.REELS_REQUIRED ?? '2')
 
@@ -21,19 +22,18 @@ export async function GET(req: NextRequest) {
     if (acErr) throw acErr
 
     const ids = (accounts ?? []).map(a => a.id)
-    const { data: posts, error: pErr } = ids.length
-      ? await supabase
-          .from('ig_posts')
-          .select('accountId')
-          .eq('tipo', 'Reel')
-          .eq('fechaPub', fecha)
-          .in('accountId', ids)
-          .range(0, 9999)
-      : { data: [], error: null }
-    if (pErr) throw pErr
+    const posts = await inChunks(ids, (chunk) =>
+      supabase
+        .from('ig_posts')
+        .select('accountId')
+        .eq('tipo', 'Reel')
+        .eq('fechaPub', fecha)
+        .in('accountId', chunk)
+        .range(0, 9999)
+    )
 
     const reelCounts = new Map<string, number>()
-    for (const p of posts ?? []) reelCounts.set(p.accountId, (reelCounts.get(p.accountId) ?? 0) + 1)
+    for (const p of posts) reelCounts.set(p.accountId, (reelCounts.get(p.accountId) ?? 0) + 1)
 
     const rows = (accounts ?? []).map(acc => ({
       accountId: acc.id,

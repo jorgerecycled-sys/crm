@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { requireAuth, handleApiError, apiResponse } from '@/lib/auth/middleware'
 import { calcAccountMetrics } from '@/lib/instagram/metrics'
+import { inChunks } from '@/lib/supabase/chunked'
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,23 +46,28 @@ export async function GET(req: NextRequest) {
 
     const accountIds = accounts.map(a => a.id)
 
-    // ── 2. Measurements — last 45 days for all accounts in one query ──
+    // ── 2. Measurements — last 45 days for all accounts, chunked (large id
+    // lists blow past PostgREST's ~16KB header limit via .in()) ───────────
     const cutoff = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const { data: allMeasurements } = await supabase
-      .from('ig_measurements')
-      .select('accountId, fecha, seguidores, siguiendo, seguidoresGanados, reproduccionesTotal, postsHoy, reelsHoy, likesDia, comentariosDia')
-      .in('accountId', accountIds)
-      .gte('fecha', cutoff)
-      .order('fecha', { ascending: false })
-      .range(0, 9999)
+    const allMeasurements = await inChunks(accountIds, (chunk) =>
+      supabase
+        .from('ig_measurements')
+        .select('accountId, fecha, seguidores, siguiendo, seguidoresGanados, reproduccionesTotal, postsHoy, reelsHoy, likesDia, comentariosDia')
+        .in('accountId', chunk)
+        .gte('fecha', cutoff)
+        .order('fecha', { ascending: false })
+        .range(0, 9999)
+    )
 
-    // ── 3. Posts — last 100 per account pool ─────────────────────────
-    const { data: allPosts } = await supabase
-      .from('ig_posts')
-      .select('accountId, id, shortcode, tipo, fechaPub, visitas, likes, comentarios')
-      .in('accountId', accountIds)
-      .order('fechaPub', { ascending: false })
-      .range(0, 9999)
+    // ── 3. Posts — last 100 per account, chunked ──────────────────────
+    const allPosts = await inChunks(accountIds, (chunk) =>
+      supabase
+        .from('ig_posts')
+        .select('accountId, id, shortcode, tipo, fechaPub, visitas, likes, comentarios')
+        .in('accountId', chunk)
+        .order('fechaPub', { ascending: false })
+        .range(0, 9999)
+    )
 
     // ── 4. Latest sync timestamp ──────────────────────────────────────
     const { data: latestSync } = await supabase

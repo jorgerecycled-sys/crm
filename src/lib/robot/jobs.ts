@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { supabase } from '@/lib/supabase/client'
+import { inChunks } from '@/lib/supabase/chunked'
 
 export async function generateDailyTasks(fecha?: string): Promise<Record<string, unknown>> {
   const today = fecha ?? new Date().toISOString().split('T')[0]
@@ -83,15 +84,16 @@ export async function runDetectPerformance(): Promise<Record<string, unknown>> {
   if (!accounts?.length) return { evaluated: 0, retiring: 0, accounts: [] }
 
   const ids = accounts.map(a => a.id)
-  const { data: meas, error: mErr } = await supabase
-    .from('ig_measurements')
-    .select('accountId, fecha, seguidores, reproduccionesTotal')
-    .in('accountId', ids).gte('fecha', cutoff30).order('fecha', { ascending: true })
-    .range(0, 19999)
-  if (mErr) throw mErr
+  const meas = await inChunks(ids, (chunk) =>
+    supabase
+      .from('ig_measurements')
+      .select('accountId, fecha, seguidores, reproduccionesTotal')
+      .in('accountId', chunk).gte('fecha', cutoff30).order('fecha', { ascending: true })
+      .range(0, 19999)
+  )
 
   const byAccount = new Map<string, { fecha: string; seguidores: number | null; views: number | null }[]>()
-  for (const m of meas ?? []) {
+  for (const m of meas) {
     if (!byAccount.has(m.accountId)) byAccount.set(m.accountId, [])
     byAccount.get(m.accountId)!.push({ fecha: m.fecha, seguidores: m.seguidores, views: m.reproduccionesTotal })
   }
@@ -206,16 +208,17 @@ export async function promoteNewAccounts(): Promise<Record<string, unknown>> {
   // Measurements in the window for engagement calculation
   const measCutoff = new Date(Date.now() - NEW_ACCOUNT_DAYS * 86400000).toISOString().split('T')[0]
   const ids = accounts.map(a => a.id)
-  const { data: meas, error: mErr } = await supabase
-    .from('ig_measurements')
-    .select('accountId, seguidores, likesDia, comentariosDia')
-    .in('accountId', ids)
-    .gte('fecha', measCutoff)
-    .range(0, 9999)
-  if (mErr) throw mErr
+  const meas = await inChunks(ids, (chunk) =>
+    supabase
+      .from('ig_measurements')
+      .select('accountId, seguidores, likesDia, comentariosDia')
+      .in('accountId', chunk)
+      .gte('fecha', measCutoff)
+      .range(0, 9999)
+  )
 
   const byAccount = new Map<string, { seguidores: number | null; likesDia: number | null; comentariosDia: number | null }[]>()
-  for (const m of meas ?? []) {
+  for (const m of meas) {
     if (!byAccount.has(m.accountId)) byAccount.set(m.accountId, [])
     byAccount.get(m.accountId)!.push({ seguidores: m.seguidores, likesDia: m.likesDia, comentariosDia: m.comentariosDia })
   }
@@ -276,16 +279,17 @@ export async function evaluatePoolAccounts(): Promise<Record<string, unknown>> {
   if (!accounts?.length) return { evaluated: 0, promoted: 0, expired: 0, accounts: [] }
 
   const ids = accounts.map(a => a.id)
-  const { data: latestMeas, error: mErr } = await supabase
-    .from('ig_measurements')
-    .select('accountId, fecha, seguidores')
-    .in('accountId', ids)
-    .order('fecha', { ascending: false })
-    .range(0, 9999)
-  if (mErr) throw mErr
+  const latestMeas = await inChunks(ids, (chunk) =>
+    supabase
+      .from('ig_measurements')
+      .select('accountId, fecha, seguidores')
+      .in('accountId', chunk)
+      .order('fecha', { ascending: false })
+      .range(0, 9999)
+  )
 
   const latestByAccount = new Map<string, number | null>()
-  for (const m of latestMeas ?? []) {
+  for (const m of latestMeas) {
     if (!latestByAccount.has(m.accountId)) latestByAccount.set(m.accountId, m.seguidores)
   }
 
@@ -331,17 +335,18 @@ export async function runReelCompliance(fecha?: string): Promise<Record<string, 
   if (!accounts?.length) return { fecha: day, evaluated: 0, compliant: 0, missing: 0, details: [] }
 
   const ids = accounts.map(a => a.id)
-  const { data: posts, error: pErr } = await supabase
-    .from('ig_posts')
-    .select('accountId')
-    .eq('tipo', 'Reel')
-    .eq('fechaPub', day)
-    .in('accountId', ids)
-    .range(0, 9999)
-  if (pErr) throw pErr
+  const posts = await inChunks(ids, (chunk) =>
+    supabase
+      .from('ig_posts')
+      .select('accountId')
+      .eq('tipo', 'Reel')
+      .eq('fechaPub', day)
+      .in('accountId', chunk)
+      .range(0, 9999)
+  )
 
   const reelCounts = new Map<string, number>()
-  for (const p of posts ?? []) reelCounts.set(p.accountId, (reelCounts.get(p.accountId) ?? 0) + 1)
+  for (const p of posts) reelCounts.set(p.accountId, (reelCounts.get(p.accountId) ?? 0) + 1)
 
   const details = accounts.map(acc => ({
     username:  acc.username,
