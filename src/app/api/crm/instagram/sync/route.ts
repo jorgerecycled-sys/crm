@@ -8,7 +8,7 @@ export const maxDuration = 290
 
 const RAPIDAPI_KEY = (process.env.RAPIDAPI_KEY ?? '').replace(/^﻿/, '').replace(/[^\x20-\x7E]/g, '').trim()
 const RAPIDAPI_HOST = 'instagram-looter2.p.rapidapi.com'
-const CONCURRENCY = 6
+const CONCURRENCY = 10
 
 type Obj = Record<string, unknown>
 
