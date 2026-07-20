@@ -30,7 +30,6 @@ import {
   Smartphone,
   UserCheck,
   Star,
-  DollarSign,
   Bot,
   Lightbulb,
   Film,
@@ -319,7 +318,6 @@ export default function Sidebar() {
               Gestión
             </p>
             {sidebarCollapsed && <div className="border-t border-sidebar-border my-2 hidden md:block" />}
-            <NavItem href="/financiero" icon={DollarSign} label="Financiero"    collapsed={sidebarCollapsed} onNavigate={closeMobileSidebar} />
             <NavItem href="/robot"     icon={Bot}         label="Robot"         collapsed={sidebarCollapsed} onNavigate={closeMobileSidebar} />
             <NavItem href="/reeles"    icon={Film}        label="Reels diarios" collapsed={sidebarCollapsed} onNavigate={closeMobileSidebar} />
             <NavItem href="/users"     icon={Users}       label="Usuarios"      collapsed={sidebarCollapsed} onNavigate={closeMobileSidebar} />
