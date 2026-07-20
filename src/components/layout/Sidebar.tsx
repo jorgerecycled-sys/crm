@@ -180,7 +180,6 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
   const channelBase = `/crm/${channel.slug}`
   const isChannelActive = pathname.startsWith(channelBase)
   const [open, setOpen] = useState(isChannelActive)
-  const isEmpleado = useAuthStore(s => s.user?.roleName) === 'Empleado'
 
   const Icon = CHANNEL_ICONS[channel.icon] ?? CHANNEL_ICONS[channel.slug] ?? Hash
 
@@ -213,7 +212,6 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
       {open && !collapsed && (
         <div className="ml-4 mt-0.5 border-l border-sidebar-border pl-3 space-y-0.5">
           {(STATS_CHANNELS.has(channel.slug) ? STATS_SUBMENU : CRM_SUBMENU)
-            .filter(item => !(isEmpleado && item.href === 'estadisticas'))
             .map((item) => {
             const href = `${channelBase}/${item.href}`
             const isActive = pathname === href || pathname.startsWith(href + '/')
