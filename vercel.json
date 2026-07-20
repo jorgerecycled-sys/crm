@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/generate-tasks", "schedule": "0 5 * * *" },
-    { "path": "/api/cron/ig-sync",        "schedule": "0 5 * * *" }
+    { "path": "/api/cron/ig-sync",        "schedule": "0 5 * * *" },
+    { "path": "/api/cron/ig-sync",        "schedule": "0 11 * * *" }
   ]
 }

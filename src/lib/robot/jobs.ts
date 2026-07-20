@@ -128,8 +128,9 @@ export async function runDetectPerformance(): Promise<Record<string, unknown>> {
     }
   }
 
-  if (toRetire.length > 0) {
-    const { error } = await supabase.from('ig_accounts').update({ status: 'retiring' }).in('id', toRetire)
+  for (let i = 0; i < toRetire.length; i += 150) {
+    const chunk = toRetire.slice(i, i + 150)
+    const { error } = await supabase.from('ig_accounts').update({ status: 'retiring' }).in('id', chunk)
     if (error) throw error
   }
 
