@@ -16,13 +16,16 @@ const createSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req)
-    const { data: accounts, error } = await supabase
+    const authUser = await requireAuth(req)
+    const isEmployee = authUser.roleName === 'Empleado'
+    let query = supabase
       .from('ig_accounts')
       .select(
         '*, ig_measurements(fecha, seguidores, siguiendo, seguidoresGanados, reproduccionesTotal, postsHoy, reelsHoy, likesDia, comentariosDia), ig_posts(id, shortcode, tipo, fechaPub, visitas, likes, comentarios)'
       )
       .order('createdAt', { ascending: false })
+    if (isEmployee) query = query.eq('employeeId', authUser.sub)
+    const { data: accounts, error } = await query
     if (error) throw error
     return apiResponse(accounts)
   } catch (e) {
@@ -32,7 +35,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAuth(req)
+    const authUser = await requireAuth(req)
+    const isEmployee = authUser.roleName === 'Empleado'
     const body = await req.json()
 
     const parsed = createSchema.safeParse(body)
@@ -40,7 +44,10 @@ export async function POST(req: NextRequest) {
       const msg = parsed.error.errors.map(e => e.message).join(', ')
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    const { username, notes, employeeId, phoneRef, model, igPassword } = parsed.data
+    const { username, notes, phoneRef, model, igPassword } = parsed.data
+    // Empleado can only ever create accounts assigned to themselves — ignore
+    // whatever employeeId they submitted and force their own.
+    const employeeId = isEmployee ? authUser.sub : (parsed.data.employeeId ?? null)
 
     const { data: existing, error: findError } = await supabase
       .from('ig_accounts')
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest) {
       id: uuidv4(),
       username,
       notes: notes ?? null,
-      employeeId: employeeId ?? null,
+      employeeId,
       employee: employeeName,
       phoneRef: phoneRef ?? null,
       model: model ?? null,
