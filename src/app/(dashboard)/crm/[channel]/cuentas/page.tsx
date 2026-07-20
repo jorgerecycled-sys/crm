@@ -653,11 +653,25 @@ export default function CuentasPage() {
     toast(`Móvil ${phoneRef} reactivado (${toReactivate.length} cuentas)`, 'success')
   }
 
-  function openPanel(acc: Account) {
+  async function openPanel(acc: Account) {
     setDetailAcc(acc)
     setShowPwd(false)
     setEditing(false)
-    setEditForm({ notes: acc.notes ?? '', igPassword: acc.igPassword ?? '', igEmail: acc.igEmail ?? '', fa2: acc.fa2 ?? '', phoneRef: acc.phoneRef ?? '' })
+    setEditForm({ notes: acc.notes ?? '', igPassword: '', igEmail: '', fa2: '', phoneRef: acc.phoneRef ?? '' })
+    // Credentials are no longer bundled in the list response — fetch them
+    // for this one account (audit-logged server-side) when the panel opens.
+    try {
+      const token = useAuthStore.getState().accessToken
+      const r = await fetch(`/api/crm/instagram/accounts/${acc.id}/credentials`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      if (!r.ok) return
+      const creds = await r.json()
+      setDetailAcc(prev => (prev && prev.id === acc.id ? { ...prev, ...creds } : prev))
+      setEditForm(prev => ({ ...prev, igPassword: creds.igPassword ?? '', igEmail: creds.igEmail ?? '', fa2: creds.fa2 ?? '' }))
+    } catch {
+      // Non-fatal — panel still shows everything else, just no credentials.
+    }
   }
 
   async function handleSaveEdit() {

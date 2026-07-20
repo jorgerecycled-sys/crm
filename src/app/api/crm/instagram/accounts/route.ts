@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
     if (isEmployee) query = query.eq('employeeId', authUser.sub)
     const { data: accounts, error } = await query
     if (error) throw error
-    return apiResponse(accounts)
+    // Credentials are only bundled here for Empleado (their own accounts,
+    // already scoped above) — everyone else fetches them one at a time via
+    // the audit-logged /accounts/[id]/credentials endpoint.
+    const sanitized = isEmployee
+      ? accounts
+      : accounts?.map((a) => ({ ...a, igPassword: null, igEmail: null, fa2: null }))
+    return apiResponse(sanitized)
   } catch (e) {
     return handleApiError(e)
   }

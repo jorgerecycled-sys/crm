@@ -120,9 +120,12 @@ export async function GET(req: NextRequest) {
         employeeId: acc.employeeId ?? null,
         employee: erpUser ? `${erpUser.firstName} ${erpUser.lastName}`.trim() : (acc.employee ?? null),
         phoneRef: acc.phoneRef,
-        igPassword: acc.igPassword ?? null,
-        igEmail: acc.igEmail ?? null,
-        fa2: acc.fa2 ?? null,
+        // Credentials are only bundled here for Empleado (their own accounts,
+        // already scoped above) — everyone else fetches them one at a time via
+        // the audit-logged /accounts/[id]/credentials endpoint.
+        igPassword: isEmployee ? (acc.igPassword ?? null) : null,
+        igEmail: isEmployee ? (acc.igEmail ?? null) : null,
+        fa2: isEmployee ? (acc.fa2 ?? null) : null,
         igGroup: acc.igGroup ?? acc.grupo ?? null,
         accountType: acc.accountType ?? acc.igType ?? null,
         niche: acc.niche,
