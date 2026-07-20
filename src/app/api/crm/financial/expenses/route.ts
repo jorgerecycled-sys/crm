@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { requireAuth, handleApiError } from '@/lib/auth/middleware'
+import { requirePermission, handleApiError } from '@/lib/auth/middleware'
 
 // GET: list expenses for a given month (YYYY-MM)
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req)
+    await requirePermission(req, 'financial:manage')
   } catch (e) {
     return handleApiError(e)
   }
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 // body: { tipo: 'fijo'|'variable'|'comision', ...fields }
 export async function POST(req: NextRequest) {
   try {
-    await requireAuth(req)
+    await requirePermission(req, 'financial:manage')
   } catch (e) {
     return handleApiError(e)
   }
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 // query: tipo=fijo|variable|comision, id=...
 export async function DELETE(req: NextRequest) {
   try {
-    await requireAuth(req)
+    await requirePermission(req, 'financial:manage')
   } catch (e) {
     return handleApiError(e)
   }

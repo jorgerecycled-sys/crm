@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { requireAuth, handleApiError } from '@/lib/auth/middleware'
+import { requirePermission, handleApiError } from '@/lib/auth/middleware'
 
 // GET: net profit summary by model for a given month
 // Combines: Infloww revenue (from cache) + expenses
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req)
+    await requirePermission(req, 'financial:manage')
   } catch (e) {
     return handleApiError(e)
   }

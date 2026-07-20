@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { requireAuth, handleApiError } from '@/lib/auth/middleware'
+import { requirePermission, handleApiError } from '@/lib/auth/middleware'
 
 const INFLOWW_API_KEY = (process.env.INFLOWW_API_KEY ?? '').trim()
 const INFLOWW_API_URL = (process.env.INFLOWW_API_URL ?? 'https://api.infloww.com/v1').trim()
@@ -9,7 +9,7 @@ const INFLOWW_API_URL = (process.env.INFLOWW_API_URL ?? 'https://api.infloww.com
 // Query params: startDate (YYYY-MM-DD), endDate (YYYY-MM-DD), modelo (optional), refresh (boolean)
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req)
+    await requirePermission(req, 'financial:manage')
   } catch (e) {
     return handleApiError(e)
   }
