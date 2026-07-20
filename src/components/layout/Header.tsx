@@ -1,12 +1,30 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, Bell, User, ChevronDown, Menu } from 'lucide-react'
-import { useState } from 'react'
+import { LogOut, Bell, User, ChevronDown, Menu, AlertTriangle, Clock } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useUIStore } from '@/store/ui'
 import { getInitials } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+
+interface Notification {
+  id: string
+  type: 'suspended' | 'shadow_banned' | 'pool_expiring'
+  message: string
+  href: string
+}
+
+const NOTIF_ICON: Record<Notification['type'], React.ElementType> = {
+  suspended: AlertTriangle,
+  shadow_banned: AlertTriangle,
+  pool_expiring: Clock,
+}
+const NOTIF_COLOR: Record<Notification['type'], string> = {
+  suspended: '#e05252',
+  shadow_banned: '#f5a623',
+  pool_expiring: '#d4a843',
+}
 
 const BREADCRUMB_MAP: Record<string, string> = {
   dashboard: 'Resumen',
@@ -39,6 +57,22 @@ export default function Header() {
   const { user, logout } = useAuthStore()
   const { toggleMobileSidebar } = useUIStore()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+
+  const loadNotifications = useCallback(() => {
+    const token = useAuthStore.getState().accessToken
+    fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setNotifications(d.notifications ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    loadNotifications()
+    const interval = setInterval(loadNotifications, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [loadNotifications])
 
   const segments = pathname.split('/').filter(Boolean)
   const breadcrumbs = segments.map((s) => BREADCRUMB_MAP[s] ?? s)
@@ -97,9 +131,47 @@ export default function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-1 shrink-0">
-        <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative">
-          <Bell className="w-4 h-4" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen(!notifOpen)}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative"
+          >
+            <Bell className="w-4 h-4" />
+            {notifications.length > 0 && (
+              <span className="absolute top-1 right-1 min-w-[14px] h-3.5 px-1 rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground flex items-center justify-center leading-none">
+                {notifications.length}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 w-80 max-w-[90vw] bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in max-h-96 overflow-y-auto">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+                  Notificaciones {notifications.length > 0 ? `(${notifications.length})` : ''}
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-6 text-sm text-muted-foreground text-center">Sin novedades</div>
+                ) : (
+                  notifications.map(n => {
+                    const Icon = NOTIF_ICON[n.type]
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => { setNotifOpen(false); router.push(n.href) }}
+                        className="w-full flex items-start gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors text-left border-b border-border last:border-0"
+                      >
+                        <Icon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: NOTIF_COLOR[n.type] }} />
+                        <span className="min-w-0">{n.message}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         {/* User dropdown */}
         <div className="relative">
