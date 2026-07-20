@@ -1,4 +1,12 @@
-// This is your Prisma schema file
+// ⚠️ DOCUMENTATION ONLY — not wired up at runtime.
+// `@prisma/client` isn't a project dependency and no DATABASE_URL/DIRECT_URL
+// is configured anywhere (only SUPABASE_URL/SUPABASE_KEY, used directly via
+// @supabase/supabase-js). Every query in src/ goes through the Supabase REST
+// client, not Prisma. This file — plus the raw SQL in supabase/*.sql and the
+// one-off scripts/*.mjs table-creation scripts — is the closest thing to a
+// canonical schema reference, kept manually in sync (last done 2026-07-20).
+// If you ever wire Prisma up for real, run `prisma db pull` against a real
+// DATABASE_URL first and diff against this file rather than trusting it blindly.
 generator client {
   provider = "prisma-client-js"
 }
@@ -391,19 +399,35 @@ model IgAccount {
   status    String   @default("active")
   model     String?
   employee  String?
+  employeeId String?  // FK -> erp_users.id, ON DELETE SET NULL (added by account_employee_link.sql) — not
+                       // modeled as a Prisma @relation since Prisma isn't wired up at runtime (see note below)
   phoneRef  String?
   igType    String?
+  accountType String? // newer alias of igType, some records use one or the other
   niche     String?
   grupo     String?
+  igGroup   String?   // newer alias of grupo, some records use one or the other
   notes     String?
   igCreatedOn DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Credentials — stored in plaintext today (see security note in memory/docs)
+  igPassword String?
+  igEmail    String?
+  fa2        String?
+
+  // Disposable "pool" accounts (JailBreak / Pool Accounts) — see supabase/ig_pool_accounts.sql.
+  // pool = 'jailbreak' | 'pool' | null (null = a normal, non-pool account)
+  pool                  String?
+  poolAssignedAt        DateTime?
+  poolAssignedFollowers Int?
+
   measurements IgMeasurement[]
   posts        IgPost[]
 
   @@index([status])
+  @@index([pool])
   @@map("ig_accounts")
 }
 
@@ -445,4 +469,181 @@ model IgPost {
   @@unique([accountId, shortcode])
   @@index([accountId])
   @@map("ig_posts")
+}
+
+model IgPhone {
+  id              String   @id @default(uuid())
+  phoneRef        String   @unique
+  gmailUser       String?
+  gmailPassword   String?
+  appleId         String?
+  appleIdPassword String?
+  appleIdPhone    String?
+  remoteLink      String?
+  employee        String?
+  model           String?
+  niche           String?
+  grupo           String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ig_phones")
+}
+
+model IgAccountAlertDismissal {
+  accountId       String
+  dismissedStatus String
+  dismissedAt     DateTime @default(now())
+
+  @@id([accountId, dismissedStatus])
+  @@map("ig_account_alert_dismissals")
+}
+
+model IgPhoneAlert {
+  id         String    @id @default(uuid())
+  phoneRef   String    @unique
+  status     String    @default("ok") // 'ok' | 'cambiar'
+  deadCount  Int       @default(0)
+  reason     String?
+  detectedAt DateTime  @default(now())
+  resolvedAt DateTime?
+  updatedAt  DateTime  @default(now())
+
+  @@map("ig_phone_alerts")
+}
+
+model IgDailyTask {
+  id         String    @id // deterministic: fecha_accountId_tipo_num
+  fecha      DateTime  @db.Date
+  employeeId String    // ig_accounts.employee (display name, not a real FK)
+  phoneRef   String
+  accountId  String?   // null on 'crear_cuenta' tasks
+  username   String?
+  tipo       String    // 'crear_cuenta' | 'reel' | 'historia'
+  num        Int       @default(1)
+  status     String    @default("pendiente") // 'pendiente' | 'hecha'
+  doneAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([fecha, employeeId])
+  @@index([fecha, phoneRef])
+  @@map("ig_daily_tasks")
+}
+
+model IgIncident {
+  id          String   @id @default(uuid())
+  accountId   String?
+  description String
+  tipo        String   @default("general")
+  status      String   @default("open")
+  reportedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  @@map("ig_incidents")
+}
+
+model IgRecommendation {
+  id        String   @id @default(uuid())
+  texto     String
+  prioridad String   @default("media")
+  categoria String   @default("general")
+  createdBy String   @default("admin")
+  activa    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("ig_recommendations")
+}
+
+model RobotConfig {
+  id            String   @id @default(uuid())
+  jobName       String   @unique
+  label         String
+  preferredHour Int      @default(6) // UTC hour, 0-23
+  enabled       Boolean  @default(true)
+  notes         String?
+  updatedAt     DateTime @default(now())
+
+  @@map("robot_config")
+}
+
+model RobotRun {
+  id           String    @id @default(uuid())
+  jobName      String
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  status       String    @default("running") // 'running'|'ok'|'error'|'skipped'
+  result       Json?
+  errorMessage String?
+  duration     Int?      // milliseconds
+  triggeredBy  String    @default("cron") // 'cron'|'manual'
+
+  @@index([jobName, startedAt(sort: Desc)])
+  @@map("robot_runs")
+}
+
+// ─── FINANCIALS ────────────────────────────────────────────────────────────
+
+model FinGastoFijo {
+  id        String   @id @default(uuid())
+  modelo    String   // model name, or 'global'
+  concepto  String
+  importe   Decimal  @db.Decimal(10, 2)
+  mes       String   // 'YYYY-MM'
+  createdAt DateTime @default(now())
+
+  @@map("fin_gastos_fijos")
+}
+
+model FinGastoVariable {
+  id        String   @id @default(uuid())
+  modelo    String
+  concepto  String
+  importe   Decimal  @db.Decimal(10, 2)
+  fecha     DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@map("fin_gastos_variables")
+}
+
+model FinReglaComision {
+  id         String   @id @default(uuid())
+  empleadoId String
+  modelo     String
+  porcentaje Decimal  @db.Decimal(5, 2) // e.g. 15.00 = 15%
+  base       String   @default("mensajes_propinas")
+  activa     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@map("fin_reglas_comision")
+}
+
+model InflowwCache {
+  id       String    @id // Infloww's own transaction ID
+  modelo   String?
+  tipo     String?   // 'suscripcion'|'mensaje_ppv'|'propina'|'refund'|'chargeback'
+  importe  Decimal?  @db.Decimal(10, 2)
+  fecha    DateTime? @db.Date
+  rawData  Json?
+  syncedAt DateTime  @default(now())
+
+  @@map("infloww_cache")
+}
+
+// ─── MEJORAS (feature request board) ───────────────────────────────────────
+
+model AppMejora {
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  category      String   @default("funcionalidad") // 'funcionalidad'|'ui'|'rendimiento'|'otro'
+  priority      String   @default("medium")         // 'low'|'medium'|'high'
+  status        String   @default("pending")        // 'pending'|'in_review'|'in_progress'|'done'|'rejected'
+  adminNotes    String?
+  submittedById String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@map("app_mejoras")
 }
