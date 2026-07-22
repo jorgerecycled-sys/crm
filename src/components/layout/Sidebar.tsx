@@ -34,6 +34,7 @@ import {
   Lightbulb,
   Film,
   Layers,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
@@ -77,6 +78,10 @@ const STATS_SUBMENU = [
   { label: 'Modelos',        href: 'modelos', icon: Star },
   { label: 'Empleados',      href: 'empleados', icon: UserCheck },
 ]
+
+// ig-cuentas is the create/edit/delete CRUD page for Instagram accounts — only
+// exists for that channel, so it's appended rather than living in STATS_SUBMENU.
+const INSTAGRAM_MANAGE_ITEM = { label: 'Gestionar cuentas', href: 'ig-cuentas', icon: Trash2 }
 
 const JAILBREAK_ACCOUNTS_SUBMENU = [
   { label: 'JailBreak',     href: 'jailbreak' },
@@ -210,7 +215,9 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
 
       {open && !collapsed && (
         <div className="ml-4 mt-0.5 border-l border-sidebar-border pl-3 space-y-0.5">
-          {(STATS_CHANNELS.has(channel.slug) ? STATS_SUBMENU : CRM_SUBMENU)
+          {(STATS_CHANNELS.has(channel.slug)
+            ? (channel.slug === 'instagram' ? [...STATS_SUBMENU, INSTAGRAM_MANAGE_ITEM] : STATS_SUBMENU)
+            : CRM_SUBMENU)
             .map((item) => {
             const href = `${channelBase}/${item.href}`
             const isActive = pathname === href || pathname.startsWith(href + '/')
