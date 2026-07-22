@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Trash2, UserCheck, UserX, UserPlus } from 'lucide-react'
-import { formatDate, getInitials } from '@/lib/utils'
+import { formatDate, formatDateTime, getInitials } from '@/lib/utils'
 import { toast } from '@/components/ui/toaster'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -204,6 +204,13 @@ export default function UsersPage() {
       ),
     },
     { accessorKey: 'createdAt', header: 'Alta', cell: ({ row }) => formatDate(row.original.createdAt) },
+    {
+      accessorKey: 'lastLoginAt',
+      header: 'Último acceso',
+      cell: ({ row }) => row.original.lastLoginAt
+        ? formatDateTime(row.original.lastLoginAt)
+        : <span className="text-muted-foreground text-xs">Nunca</span>,
+    },
     {
       id: 'actions',
       header: '',
