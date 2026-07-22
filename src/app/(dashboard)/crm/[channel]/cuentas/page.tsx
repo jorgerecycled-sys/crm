@@ -489,6 +489,7 @@ export default function CuentasPage() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [unlockingId, setUnlockingId] = useState<string | null>(null)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [phoneSearch, setPhoneSearch] = useState('')
   const [detailAcc, setDetailAcc] = useState<Account | null>(null)
   const [showPwd, setShowPwd] = useState(false)
@@ -620,12 +621,29 @@ export default function CuentasPage() {
     try {
       const token = useAuthStore.getState().accessToken
       const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      await fetch(`/api/crm/instagram/accounts/${acc.id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'unused' }) })
-      setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, status: 'unused' } : a))
-      toast(`@${acc.username} desactivada`, 'success')
+      await fetch(`/api/crm/instagram/accounts/${acc.id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'unused', phoneRef: null }) })
+      setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, status: 'unused', phoneRef: null } : a))
+      setDetailAcc(prev => (prev && prev.id === acc.id ? { ...prev, status: 'unused', phoneRef: null } : prev))
+      toast(`@${acc.username} desactivada${acc.phoneRef ? ' — móvil liberado' : ''}`, 'success')
     } catch {
       toast('Error al desactivar', 'error')
     } finally { setDeactivatingId(null) }
+  }
+
+  async function handleDeleteAccount(acc: Account) {
+    if (!confirm(`¿Eliminar @${acc.username}? Se borrarán todos sus datos.`)) return
+    setDeletingId(acc.id)
+    try {
+      const token = useAuthStore.getState().accessToken
+      const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      const r = await fetch(`/api/crm/instagram/accounts/${acc.id}`, { method: 'DELETE', headers })
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? 'Error al eliminar')
+      setAccounts(prev => prev.filter(a => a.id !== acc.id))
+      setDetailAcc(prev => (prev && prev.id === acc.id ? null : prev))
+      toast(`@${acc.username} eliminada`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally { setDeletingId(null) }
   }
 
   async function handleReactivate(acc: Account) {
@@ -1036,8 +1054,34 @@ export default function CuentasPage() {
                 )}
               </div>
 
+              {/* Status actions */}
+              <div style={{ padding: '0 24px 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {detailAcc.status === 'suspended' && (
+                  <button onClick={() => handleUnlock(detailAcc)} disabled={unlockingId === detailAcc.id}
+                    style={{ flex: '1 1 auto', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(52,199,89,0.4)', background: 'rgba(52,199,89,0.1)', color: '#34c759', fontWeight: 700, fontSize: 13, cursor: unlockingId === detailAcc.id ? 'not-allowed' : 'pointer', opacity: unlockingId === detailAcc.id ? 0.6 : 1 }}>
+                    🔓 {unlockingId === detailAcc.id ? 'Desbloqueando…' : 'Desbloquear'}
+                  </button>
+                )}
+                {detailAcc.status === 'unused' && (
+                  <button onClick={() => handleReactivate(detailAcc)} disabled={deactivatingId === detailAcc.id}
+                    style={{ flex: '1 1 auto', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(52,199,89,0.35)', background: 'rgba(52,199,89,0.08)', color: '#34c759', fontWeight: 700, fontSize: 13, cursor: deactivatingId === detailAcc.id ? 'not-allowed' : 'pointer', opacity: deactivatingId === detailAcc.id ? 0.6 : 1 }}>
+                    ▶ {deactivatingId === detailAcc.id ? 'Reactivando…' : 'Reactivar'}
+                  </button>
+                )}
+                {detailAcc.status !== 'unused' && detailAcc.status !== 'suspended' && (
+                  <button onClick={() => handleDeactivate(detailAcc)} disabled={deactivatingId === detailAcc.id}
+                    style={{ flex: '1 1 auto', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(107,114,128,0.35)', background: 'rgba(107,114,128,0.08)', color: '#9aa4b8', fontWeight: 700, fontSize: 13, cursor: deactivatingId === detailAcc.id ? 'not-allowed' : 'pointer', opacity: deactivatingId === detailAcc.id ? 0.6 : 1 }}>
+                    ⏸ {deactivatingId === detailAcc.id ? 'Desactivando…' : 'Desactivar'}
+                  </button>
+                )}
+                <button onClick={() => handleDeleteAccount(detailAcc)} disabled={deletingId === detailAcc.id}
+                  style={{ flex: '1 1 auto', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(224,82,82,0.4)', background: 'rgba(224,82,82,0.1)', color: '#e05252', fontWeight: 700, fontSize: 13, cursor: deletingId === detailAcc.id ? 'not-allowed' : 'pointer', opacity: deletingId === detailAcc.id ? 0.6 : 1 }}>
+                  🗑 {deletingId === detailAcc.id ? 'Eliminando…' : 'Borrar'}
+                </button>
+              </div>
+
               {/* Actions */}
-              <div style={{ marginTop: 'auto', padding: '16px 24px 24px', display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 'auto', padding: '0 24px 24px', display: 'flex', gap: 8 }}>
                 <a href={`https://instagram.com/${detailAcc.username}`} target="_blank" rel="noopener noreferrer"
                   style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: '#1c2240', color: '#e8ecf5', fontWeight: 600, fontSize: 13, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
                   Instagram ↗
