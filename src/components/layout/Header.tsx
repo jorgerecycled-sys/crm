@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, Bell, User, ChevronDown, Menu, AlertTriangle, Clock } from 'lucide-react'
+import { LogOut, Bell, User, ChevronDown, Menu, AlertTriangle, Clock, Maximize2, Minimize2 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useUIStore } from '@/store/ui'
@@ -59,6 +59,18 @@ export default function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [fullscreen, setFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    else document.documentElement.requestFullscreen().catch(() => {})
+  }
 
   const loadNotifications = useCallback(() => {
     const token = useAuthStore.getState().accessToken
@@ -99,7 +111,7 @@ export default function Header() {
     : 'U'
 
   return (
-    <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-3 md:px-6 shrink-0 sticky top-0 z-30 gap-2">
+    <header className="theme-light h-[70px] bg-card text-foreground shadow-[0_1px_2px_rgba(56,65,74,0.15)] flex items-center justify-between px-3 md:px-6 shrink-0 sticky top-0 z-30 gap-2">
       {/* Left: hamburger (mobile) + breadcrumbs */}
       <div className="flex items-center gap-2 min-w-0">
         {/* Hamburger — mobile only */}
@@ -131,12 +143,20 @@ export default function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={toggleFullscreen}
+          className="hidden md:flex p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        >
+          {fullscreen ? <Minimize2 className="w-[18px] h-[18px]" /> : <Maximize2 className="w-[18px] h-[18px]" />}
+        </button>
         <div className="relative">
           <button
             onClick={() => setNotifOpen(!notifOpen)}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative"
+            className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-[18px] h-[18px]" />
             {notifications.length > 0 && (
               <span className="absolute top-1 right-1 min-w-[14px] h-3.5 px-1 rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground flex items-center justify-center leading-none">
                 {notifications.length}
@@ -177,9 +197,9 @@ export default function Header() {
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg hover:bg-accent transition-colors"
+            className="flex items-center gap-2 px-2 md:px-3 h-[70px] bg-accent/60 hover:bg-accent transition-colors ml-2"
           >
-            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0">
               {initials}
             </div>
             <div className="hidden sm:block text-left">

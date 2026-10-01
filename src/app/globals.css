@@ -3,7 +3,44 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* Velzon (Material) light theme */
+  :root,
+  .theme-light {
+    --background: 240 31% 96%;
+    --foreground: 210 9% 31%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 9% 31%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 9% 31%;
+    --primary: 226 36% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 33% 96%;
+    --secondary-foreground: 210 9% 31%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 231 9% 57%;
+    --accent: 210 33% 96%;
+    --accent-foreground: 210 9% 31%;
+    --destructive: 10 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 172 89% 36%;
+    --warning: 38 92% 64%;
+    --info: 201 71% 51%;
+    --border: 195 5% 92%;
+    --input: 210 14% 83%;
+    --ring: 226 36% 39%;
+    --radius: 0.5rem;
+    --sidebar-background: 226 36% 39%;
+    --sidebar-foreground: 226 59% 77%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 226 36% 39%;
+    --sidebar-accent: 226 36% 33%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 226 30% 46%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
+  /* Dark scope — pages not yet migrated to the Velzon look */
+  .dark {
     --background: 222 47% 7%;
     --foreground: 210 40% 98%;
     --card: 222 47% 9%;
@@ -20,10 +57,12 @@
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142 60% 50%;
+    --warning: 38 92% 55%;
+    --info: 201 71% 51%;
     --border: 217 33% 17%;
     --input: 217 33% 17%;
     --ring: 39 65% 55%;
-    --radius: 0.5rem;
     --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 210 40% 90%;
     --sidebar-primary: 39 65% 55%;

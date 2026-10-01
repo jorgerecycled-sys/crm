@@ -102,8 +102,8 @@ function JailBreakAccountsGroup({ onNavigate }: { onNavigate?: () => void }) {
         className={cn(
           'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-all duration-150',
           isActive
-            ? 'text-sidebar-primary font-medium bg-sidebar-primary/10'
-            : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+            ? 'text-white font-medium bg-white/10'
+            : 'text-sidebar-foreground hover:text-white hover:bg-white/5'
         )}
       >
         <Layers className="w-3.5 h-3.5 shrink-0" />
@@ -128,8 +128,8 @@ function JailBreakAccountsGroup({ onNavigate }: { onNavigate?: () => void }) {
                 className={cn(
                   'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-all duration-150',
                   isItemActive
-                    ? 'text-sidebar-primary font-medium bg-sidebar-primary/10'
-                    : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                    ? 'text-white font-medium bg-white/10'
+                    : 'text-sidebar-foreground hover:text-white hover:bg-white/5'
                 )}
               >
                 {item.label}
@@ -159,10 +159,10 @@ function NavItem({ href, icon: Icon, label, collapsed, onNavigate }: NavItemProp
       href={href}
       onClick={onNavigate}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+        'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-150',
         isActive
           ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-          : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50',
+          : 'text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/60',
         collapsed && 'justify-center px-2'
       )}
       title={collapsed ? label : undefined}
@@ -192,10 +192,10 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+          'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-150',
           isChannelActive
-            ? 'text-sidebar-foreground font-medium'
-            : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50',
+            ? 'text-white font-medium'
+            : 'text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/60',
           collapsed && 'justify-center px-2'
         )}
         title={collapsed ? channel.name : undefined}
@@ -229,8 +229,8 @@ function ChannelMenu({ channel, collapsed, onNavigate }: ChannelMenuProps) {
                 className={cn(
                   'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-all duration-150',
                   isActive
-                    ? 'text-sidebar-primary font-medium bg-sidebar-primary/10'
-                    : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                    ? 'text-white font-medium bg-white/10'
+                    : 'text-sidebar-foreground hover:text-white hover:bg-white/5'
                 )}
               >
                 <item.icon className="w-3.5 h-3.5 shrink-0" />
@@ -254,9 +254,9 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-40',
+        'theme-light fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-40 shadow-[0_1px_20px_rgba(64,81,137,0.15)]',
         // Desktop: width based on collapsed state
-        sidebarCollapsed ? 'md:w-16' : 'md:w-64',
+        sidebarCollapsed ? 'md:w-[70px]' : 'md:w-[250px]',
         // Mobile: always full width, slides in/out
         'w-72 md:translate-x-0',
         mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
@@ -264,20 +264,20 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className={cn(
-        'flex items-center gap-3 p-4 border-b border-sidebar-border',
-        sidebarCollapsed && 'md:justify-center'
+        'flex items-center gap-3 px-4 h-[70px] shrink-0 border-b border-sidebar-border',
+        sidebarCollapsed && 'md:justify-center md:px-0'
       )}>
-        <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style={{ background: '#d4a843' }}>
-          <Image src="/logo.ico" alt="Logo" width={32} height={32} className="w-8 h-8 object-contain" />
+        <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-white/10">
+          <Image src="/logo.ico" alt="Logo" width={32} height={32} className="w-7 h-7 object-contain" />
         </div>
         <div className={cn('overflow-hidden', sidebarCollapsed && 'md:hidden')}>
-          <p className="text-sm font-bold leading-tight" style={{ color: '#d4a843' }}>ERP CRM Pro</p>
-          <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
+          <p className="text-base font-semibold leading-tight text-white tracking-wide">ERP CRM Pro</p>
+          <p className="text-[11px] text-sidebar-foreground/70 truncate">{user?.email}</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {user?.roleName !== 'Empleado' && (
           <NavItem
             href="/dashboard"
@@ -292,7 +292,7 @@ export default function Sidebar() {
         {channels.length > 0 && (
           <div>
             <p className={cn(
-              'px-3 py-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider',
+              'px-3 pt-4 pb-2 text-[11px] font-semibold text-sidebar-foreground/60 uppercase tracking-[0.1em]',
               sidebarCollapsed ? 'md:hidden' : ''
             )}>
               CRM
@@ -319,7 +319,7 @@ export default function Sidebar() {
         {user?.roleName !== 'Empleado' && (
           <>
             <p className={cn(
-              'px-3 py-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider',
+              'px-3 pt-4 pb-2 text-[11px] font-semibold text-sidebar-foreground/60 uppercase tracking-[0.1em]',
               sidebarCollapsed ? 'md:hidden' : ''
             )}>
               Gestión
@@ -337,7 +337,7 @@ export default function Sidebar() {
       <div className="p-3 border-t border-sidebar-border hidden md:block">
         <button
           onClick={toggleCollapsed}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all text-sm"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/60 transition-all text-sm"
           title={sidebarCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
         >
           {sidebarCollapsed ? (

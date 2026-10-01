@@ -1,13 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import { useUIStore } from '@/store/ui'
 import { useTokenRefresh } from '@/hooks/useTokenRefresh'
 import { cn } from '@/lib/utils'
+
+// Routes not yet migrated to the Velzon look: they hardcode a dark palette, so
+// they keep rendering under the `.dark` token scope until they're restyled.
+const LEGACY_DARK_ROUTES = [
+  /^\/crm\/[^/]+\/(cuentas|empleados|estadisticas|ig-cuentas|modelos|moviles|tareas)(\/|$)/,
+  /^\/(mejoras|pool-accounts|reeles|robot|users)(\/|$)/,
+]
 
 export default function DashboardLayout({
   children,
@@ -17,10 +24,19 @@ export default function DashboardLayout({
   const { isAuthenticated } = useAuthStore()
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar } = useUIStore()
   const router = useRouter()
+  const pathname = usePathname()
+  const legacyDark = LEGACY_DARK_ROUTES.some((re) => re.test(pathname))
   const [mounted, setMounted] = useState(false)
   useTokenRefresh()
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Toggled on <html> (not a wrapper) so portaled dialogs/toasts follow the page theme.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', legacyDark)
+    return () => root.classList.remove('dark')
+  }, [legacyDark])
 
   useEffect(() => {
     if (!mounted) return
@@ -54,7 +70,7 @@ export default function DashboardLayout({
         )}
       >
         <Header />
-        <main className="flex-1 overflow-y-auto p-3 md:p-6 animate-fade-in">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6 animate-fade-in bg-background">
           {children}
         </main>
       </div>

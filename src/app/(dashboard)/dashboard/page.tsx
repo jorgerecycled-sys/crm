@@ -3,8 +3,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useApi } from '@/hooks/useApi'
 import { useAuthStore } from '@/store/auth'
-import { TrendingUp, MessageSquare, AlertCircle, LogIn, LogOut, PlusCircle, RefreshCw } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts'
+import {
+  TrendingUp, MessageSquare, AlertCircle, LogIn, LogOut, PlusCircle, RefreshCw,
+  Users, Heart, Activity, RefreshCcw, ShieldAlert, TriangleAlert, Clock,
+} from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,20 +41,89 @@ function relativeTime(iso: string): string {
   return 'ahora'
 }
 
-const LEAD_STATUS_LABELS: Record<string, string> = {
-  NEW: 'Nuevo', CONTACTED: 'Contactado', INTERESTED: 'Interesado',
-  NEGOTIATING: 'Negociación', CLOSED: 'Cerrado', LOST: 'Perdido',
-}
-const PIE_COLORS = ['#3b82f6','#f59e0b','#a855f7','#ec4899','#22c55e','#ef4444']
-
 const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  LOGIN: { label: 'Inicio de sesión', color: '#34c759', icon: <LogIn size={12} /> },
-  LOGOUT: { label: 'Cierre de sesión', color: '#6b7280', icon: <LogOut size={12} /> },
-  CREATE_LEAD: { label: 'Lead creado', color: '#f5a623', icon: <PlusCircle size={12} /> },
-  UPDATE_LEAD: { label: 'Lead actualizado', color: '#5b8dd9', icon: <RefreshCw size={12} /> },
-  CREATE_INCIDENT: { label: 'Incidencia', color: '#e05252', icon: <AlertCircle size={12} /> },
-  CREATE_SALE: { label: 'Venta creada', color: '#34c759', icon: <TrendingUp size={12} /> },
-  CREATE_CONVERSATION: { label: 'Conversación', color: '#a78bfa', icon: <MessageSquare size={12} /> },
+  LOGIN: { label: 'Inicio de sesión', color: '#0ab39c', icon: <LogIn size={14} /> },
+  LOGOUT: { label: 'Cierre de sesión', color: '#878a99', icon: <LogOut size={14} /> },
+  CREATE_LEAD: { label: 'Lead creado', color: '#f7b84b', icon: <PlusCircle size={14} /> },
+  UPDATE_LEAD: { label: 'Lead actualizado', color: '#299cdb', icon: <RefreshCw size={14} /> },
+  CREATE_INCIDENT: { label: 'Incidencia', color: '#f06548', icon: <AlertCircle size={14} /> },
+  CREATE_SALE: { label: 'Venta creada', color: '#0ab39c', icon: <TrendingUp size={14} /> },
+  CREATE_CONVERSATION: { label: 'Conversación', color: '#405189', icon: <MessageSquare size={14} /> },
+}
+
+const TOOLTIP_STYLE = {
+  background: '#fff', border: '1px solid #e9ebec', borderRadius: 6, color: '#495057',
+  fontSize: 12, boxShadow: '0 5px 10px rgba(30,32,37,0.12)',
+}
+
+// ── Velzon building blocks ────────────────────────────────────────────────────
+
+function Card({ title, icon, right, children, className, bodyClassName }: {
+  title: string
+  icon?: React.ReactNode
+  right?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+  bodyClassName?: string
+}) {
+  return (
+    <div className={cn('bg-card rounded-md shadow-[0_1px_2px_rgba(56,65,74,0.15)] flex flex-col min-w-0', className)}>
+      <div className="flex items-center justify-between gap-2 px-5 h-[60px] border-b border-border shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          {icon}
+          <h4 className="text-[15px] font-semibold text-foreground truncate">{title}</h4>
+        </div>
+        {right}
+      </div>
+      <div className={cn('p-5 flex-1 min-h-0', bodyClassName)}>{children}</div>
+    </div>
+  )
+}
+
+function MetricCard({ label, value, hint, icon, tone, loading }: {
+  label: string
+  value: string | number
+  hint?: string
+  icon: React.ReactNode
+  tone: 'primary' | 'success' | 'info' | 'warning'
+  loading: boolean
+}) {
+  const toneClass = {
+    primary: 'bg-primary/10 text-primary',
+    success: 'bg-success/10 text-success',
+    info: 'bg-info/10 text-info',
+    warning: 'bg-warning/15 text-warning',
+  }[tone]
+  return (
+    <div className="bg-card rounded-md shadow-[0_1px_2px_rgba(56,65,74,0.15)] p-5 min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+          <h4 className="mt-3 text-2xl font-semibold text-foreground leading-none">{loading ? '…' : value}</h4>
+        </div>
+        <div className={cn('w-12 h-12 rounded-md flex items-center justify-center shrink-0', toneClass)}>{icon}</div>
+      </div>
+      {hint && <p className="mt-3 text-xs text-muted-foreground truncate">{hint}</p>}
+    </div>
+  )
+}
+
+function Pill({ tone, children }: { tone: 'success' | 'danger' | 'warning' | 'primary'; children: React.ReactNode }) {
+  const toneClass = {
+    success: 'bg-success/10 text-success',
+    danger: 'bg-destructive/10 text-destructive',
+    warning: 'bg-warning/15 text-warning',
+    primary: 'bg-primary/10 text-primary',
+  }[tone]
+  return (
+    <span className={cn('inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold shrink-0', toneClass)}>
+      {children}
+    </span>
+  )
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div className="py-8 px-5 text-center text-sm text-muted-foreground">{children}</div>
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -85,15 +158,10 @@ export default function DashboardPage() {
       .then(d => setIgIncidents(d.incidents ?? [])).catch(() => {})
   }, [fetchApi])
 
-  const pieData = useMemo(() =>
-    (data?.leadsByStatus ?? []).map(s => ({
-      name: LEAD_STATUS_LABELS[s.status] ?? s.status,
-      value: s._count.status,
-    })), [data])
-
   const igSuspended = useMemo(() => igAccounts.filter(a => a.status === 'suspended'), [igAccounts])
   const igShadow = useMemo(() => igAccounts.filter(a => a.status === 'shadow banned'), [igAccounts])
   const openIgIncidents = useMemo(() => igIncidents.filter(i => i.status !== 'resolved'), [igIncidents])
+  const alertCount = igSuspended.length + igShadow.length
 
   const igSyncLabel = useMemo(() => igLastSync ? relativeTime(igLastSync) : null, [igLastSync])
 
@@ -113,258 +181,221 @@ export default function DashboardPage() {
     const map: Record<string, number> = {}
     for (const a of igAccounts) { map[a.status] = (map[a.status] ?? 0) + 1 }
     const COLORS: Record<string, string> = {
-      active: '#34c759', suspended: '#e05252', 'shadow banned': '#f5a623',
-      new: '#d4a843', unused: '#6b7280', retiring: '#b45309',
+      active: '#0ab39c', suspended: '#f06548', 'shadow banned': '#f7b84b',
+      new: '#405189', unused: '#878a99', retiring: '#299cdb',
     }
     const LABELS: Record<string, string> = {
       active: 'Activas', suspended: 'Baneadas', 'shadow banned': 'Warning',
       new: 'Nuevas', unused: 'Inactivas', retiring: 'A retirar',
     }
     return Object.entries(map)
-      .map(([status, count]) => ({ name: LABELS[status] ?? status, value: count, color: COLORS[status] ?? '#6b7280' }))
+      .map(([status, count]) => ({ name: LABELS[status] ?? status, value: count, color: COLORS[status] ?? '#878a99' }))
       .sort((a, b) => b.value - a.value)
   }, [igAccounts])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="flex flex-col gap-6">
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.4px' }}>Resumen</h1>
-          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '3px 0 0' }}>
-            Vista general del ERP
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#34c759', background: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.18)', borderRadius: 999, padding: '5px 12px' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34c759', display: 'inline-block' }} />
-          Sistema online
+      {/* Page title */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold uppercase tracking-wide text-foreground">Resumen</h1>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-success bg-success/10 rounded-full px-3 py-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+            Sistema online
+          </span>
+          <nav className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Dashboards</span><span>/</span><span className="text-foreground">Resumen</span>
+          </nav>
         </div>
       </div>
 
+      {/* Channel tabs */}
+      <div className="flex gap-6 border-b border-border">
+        {(['instagram', 'reddit'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              '-mb-px pb-3 text-sm font-medium border-b-2 transition-colors capitalize',
+              activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-      {/* Main two-column */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-
-        {/* Left: channel tabs */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Tab bar */}
-          <div style={{ display: 'flex', gap: 2, background: 'var(--surface)', borderRadius: 10, padding: 4, border: '1px solid var(--border)', width: 'fit-content' }}>
-            {(['instagram', 'reddit'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding: '6px 18px', borderRadius: 7, fontSize: 13, fontWeight: activeTab === tab ? 700 : 500, cursor: 'pointer',
-                background: activeTab === tab ? (tab === 'instagram' ? '#d4a843' : '#ff4500') : 'transparent',
-                color: activeTab === tab ? '#000' : 'var(--muted)', border: 'none', textTransform: 'capitalize',
-                transition: 'all 0.12s',
-              }}>
-                {tab === 'instagram' ? '📸 Instagram' : '🤖 Reddit'}
-              </button>
-            ))}
+      {activeTab === 'reddit' ? (
+        <Card title="Reddit">
+          <Empty>
+            La integración con Reddit está pendiente de activación. Cuando esté lista verás aquí las métricas de subreddits, posts y comentarios.
+          </Empty>
+        </Card>
+      ) : (
+        <>
+          {/* Metric cards */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Cuentas activas" tone="success" loading={loading}
+              value={igTotals?.activeAccounts ?? 0}
+              hint={igTotals ? `de ${igTotals.totalAccounts} totales` : undefined}
+              icon={<Users className="w-6 h-6" />}
+            />
+            <MetricCard
+              label="Seguidores totales" tone="primary" loading={loading}
+              value={fmt(igTotals?.totalFollowers ?? 0)}
+              icon={<Heart className="w-6 h-6" />}
+            />
+            <MetricCard
+              label="Engagement medio" tone="info" loading={loading}
+              value={`${(igTotals?.avgEngagement ?? 0).toFixed(1)}%`}
+              icon={<Activity className="w-6 h-6" />}
+            />
+            <MetricCard
+              label="Última sync" tone="warning" loading={loading}
+              value={igSyncLabel ?? '—'}
+              icon={<RefreshCcw className="w-6 h-6" />}
+            />
           </div>
 
-          {/* Instagram tab */}
-          {activeTab === 'instagram' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* IG summary strip */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                {[
-                  { label: 'Cuentas activas', value: igTotals?.activeAccounts ?? 0, total: igTotals?.totalAccounts ?? 0, color: '#34c759' },
-                  { label: 'Seguidores totales', value: igTotals?.totalFollowers ?? 0, color: '#d4a843', isFmt: true },
-                  { label: 'Engagement medio', value: igTotals?.avgEngagement ?? 0, color: '#a78bfa', isFloat: true, suffix: '%' },
-                  { label: 'Última sync', value: igSyncLabel ? igSyncLabel : '—', color: '#5b8dd9', isStr: true },
-                ].map(s => (
-                  <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{s.label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 900, color: s.color, lineHeight: 1 }}>
-                      {loading ? '…' : s.isStr ? s.value : s.isFmt ? fmt(s.value as number) : s.isFloat ? (s.value as number).toFixed(1) + (s.suffix ?? '') : s.value}
-                    </div>
-                    {'total' in s && s.total ? <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>de {s.total} totales</div> : null}
-                  </div>
-                ))}
-              </div>
-
-              {/* Panels row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-
-                {/* Incidencias IG */}
-                <div style={{ background: 'var(--surface)', border: `1px solid ${openIgIncidents.length > 0 ? '#a78bfa44' : 'var(--border)'}`, borderRadius: 14, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={openIgIncidents.length > 0 ? '#a78bfa' : 'var(--muted)'} strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Incidencias Instagram</span>
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: openIgIncidents.length > 0 ? 'rgba(167,139,250,0.12)' : 'rgba(52,199,89,0.1)', color: openIgIncidents.length > 0 ? '#a78bfa' : '#34c759' }}>
-                      {openIgIncidents.length > 0 ? `${openIgIncidents.length} abiertas` : 'OK'}
-                    </span>
-                  </div>
-                  <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
-                    {openIgIncidents.length === 0 ? (
-                      <div style={{ padding: '16px 4px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>Sin incidencias abiertas</div>
-                    ) : openIgIncidents.map(inc => (
-                      <div key={inc.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(167,139,250,0.05)', borderRadius: 8, padding: '7px 10px' }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: 'rgba(167,139,250,0.15)', color: '#a78bfa', flexShrink: 0, marginTop: 1 }}>{inc.tipo}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.description}</div>
-                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
-                            {inc.ig_accounts ? `@${inc.ig_accounts.username} · ` : ''}{relativeTime(inc.createdAt)}
-                            {inc.reportedBy ? ` · ${inc.reportedBy}` : ''}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Cuentas con alertas */}
-                <div style={{ background: 'var(--surface)', border: `1px solid ${(igSuspended.length + igShadow.length) > 0 ? '#e0525244' : 'var(--border)'}`, borderRadius: 14, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={(igSuspended.length + igShadow.length) > 0 ? '#e05252' : 'var(--muted)'} strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Cuentas con alertas</span>
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: (igSuspended.length + igShadow.length) > 0 ? 'rgba(224,82,82,0.12)' : 'rgba(52,199,89,0.1)', color: (igSuspended.length + igShadow.length) > 0 ? '#e05252' : '#34c759' }}>
-                      {igSuspended.length + igShadow.length > 0 ? `${igSuspended.length + igShadow.length} alertas` : 'OK'}
-                    </span>
-                  </div>
-                  <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
-                    {igSuspended.length + igShadow.length === 0 ? (
-                      <div style={{ padding: '16px 4px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>Todas las cuentas OK</div>
-                    ) : (
-                      <>
-                        {igSuspended.map(a => (
-                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(224,82,82,0.05)', borderRadius: 8, padding: '6px 10px' }}>
-                            <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>@{a.username}</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#e05252', background: 'rgba(224,82,82,0.12)', padding: '2px 7px', borderRadius: 999 }}>Baneada</span>
-                          </div>
-                        ))}
-                        {igShadow.map(a => (
-                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(245,166,35,0.05)', borderRadius: 8, padding: '6px 10px' }}>
-                            <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>@{a.username}</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#f5a623', background: 'rgba(245,166,35,0.12)', padding: '2px 7px', borderRadius: 999 }}>Warning</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Reddit tab */}
-          {activeTab === 'reddit' && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '40px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Reddit en configuración</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 320, margin: '0 auto' }}>
-                La integración con Reddit está pendiente de activación. Cuando esté lista, verás las métricas de subreddits, posts y comentarios aquí.
-              </div>
-            </div>
-          )}
-
-          {/* Charts row: seguidores por modelo + estado de cuentas */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 210px', gap: 12 }}>
-
-            {/* Seguidores por modelo */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Seguidores por modelo</div>
+          {/* Charts */}
+          <div className="grid gap-4 xl:grid-cols-12">
+            <Card title="Seguidores por modelo" className="xl:col-span-8">
               {modelData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={Math.max(modelData.length * 30, 80)}>
+                <ResponsiveContainer width="100%" height={Math.max(modelData.length * 38, 140)}>
                   <BarChart data={modelData} layout="vertical" margin={{ left: 0, right: 24, top: 0, bottom: 0 }}>
-                    <XAxis type="number" hide />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#7280a0', fontSize: 11 }} width={72} axisLine={false} tickLine={false} />
-                    <Bar dataKey="value" fill="#d4a843" radius={[0, 4, 4, 0]} />
-                    <Tooltip formatter={v => [fmt(v as number), 'Seguidores']} contentStyle={{ background: '#0d1124', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 11 }} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                    <CartesianGrid horizontal={false} stroke="#e9ebec" strokeDasharray="4 4" />
+                    <XAxis type="number" tickFormatter={v => fmt(v as number)} tick={{ fill: '#878a99', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#495057', fontSize: 12 }} width={90} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={v => [fmt(v as number), 'Seguidores']} contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(64,81,137,0.05)' }} />
+                    <Bar dataKey="value" fill="#405189" radius={[0, 4, 4, 0]} barSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>Sin datos de modelos</div>
+                <Empty>Sin datos de modelos</Empty>
               )}
-            </div>
+            </Card>
 
-            {/* Estado de cuentas */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Estado cuentas</div>
+            <Card title="Estado de cuentas" className="xl:col-span-4">
               {igStatusData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="100%" height={88}>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
-                      <Pie data={igStatusData} cx="50%" cy="50%" innerRadius={26} outerRadius={42} paddingAngle={2} dataKey="value">
+                      <Pie data={igStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={2} dataKey="value" stroke="none">
                         {igStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ background: '#0d0d1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 11 }} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
+                  <ul className="mt-4 divide-y divide-border">
                     {igStatusData.map((item, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{item.name}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{item.value}</span>
-                      </div>
+                      <li key={i} className="flex items-center gap-2 py-2 text-sm">
+                        <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: item.color }} />
+                        <span className="flex-1 text-muted-foreground">{item.name}</span>
+                        <span className="font-semibold text-foreground">{item.value}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </>
               ) : (
-                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>Sin datos</div>
+                <Empty>Sin datos</Empty>
               )}
-            </div>
-
+            </Card>
           </div>
-        </div>
 
-        {/* Right: Actividad reciente (compact) */}
-        <div style={{ width: 280, flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Actividad reciente</span>
-          </div>
-          <div style={{ overflowY: 'auto', maxHeight: 520 }}>
-            {loading ? (
-              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} style={{ height: 40, background: 'rgba(255,255,255,0.04)', borderRadius: 8 }} />
+          {/* Lists */}
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Card
+              title="Incidencias Instagram"
+              icon={<TriangleAlert className={cn('w-4 h-4', openIgIncidents.length > 0 ? 'text-primary' : 'text-muted-foreground')} />}
+              right={<Pill tone={openIgIncidents.length > 0 ? 'primary' : 'success'}>{openIgIncidents.length > 0 ? `${openIgIncidents.length} abiertas` : 'OK'}</Pill>}
+              bodyClassName="p-0"
+            >
+              <div className="max-h-[360px] overflow-y-auto divide-y divide-border">
+                {openIgIncidents.length === 0 ? (
+                  <Empty>Sin incidencias abiertas</Empty>
+                ) : openIgIncidents.map(inc => (
+                  <div key={inc.id} className="flex items-start gap-3 px-5 py-3">
+                    <Pill tone="primary">{inc.tipo}</Pill>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground truncate">{inc.description}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                        {inc.ig_accounts ? `@${inc.ig_accounts.username} · ` : ''}{relativeTime(inc.createdAt)}
+                        {inc.reportedBy ? ` · ${inc.reportedBy}` : ''}
+                      </p>
+                    </div>
+                  </div>
                 ))}
               </div>
-            ) : (data?.recentActivity ?? []).length === 0 ? (
-              <div style={{ padding: '30px 16px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>Sin actividad</div>
-            ) : (
-              <div>
-                {(data?.recentActivity ?? []).map(a => {
-                  const cfg = ACTION_CONFIG[a.action]
-                  const isLogin = a.action === 'LOGIN'
-                  const isLogout = a.action === 'LOGOUT'
-                  const userName = a.user ? `${a.user.firstName} ${a.user.lastName}` : null
-                  return (
-                    <div key={a.id} style={{
-                      padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      background: isLogin ? 'rgba(52,199,89,0.04)' : isLogout ? 'rgba(107,114,128,0.04)' : 'transparent',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: isLogin ? 3 : 0 }}>
-                        <span style={{ color: cfg?.color ?? '#6b7280', display: 'flex', flexShrink: 0 }}>{cfg?.icon}</span>
-                        <span style={{ fontSize: 12, color: '#fff', fontWeight: isLogin ? 700 : 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {cfg?.label ?? a.action}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{relativeTime(a.createdAt)}</span>
+            </Card>
+
+            <Card
+              title="Cuentas con alertas"
+              icon={<ShieldAlert className={cn('w-4 h-4', alertCount > 0 ? 'text-destructive' : 'text-muted-foreground')} />}
+              right={<Pill tone={alertCount > 0 ? 'danger' : 'success'}>{alertCount > 0 ? `${alertCount} alertas` : 'OK'}</Pill>}
+              bodyClassName="p-0"
+            >
+              <div className="max-h-[360px] overflow-y-auto divide-y divide-border">
+                {alertCount === 0 ? (
+                  <Empty>Todas las cuentas OK</Empty>
+                ) : (
+                  <>
+                    {igSuspended.map(a => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 px-5 py-3">
+                        <span className="text-sm font-medium text-foreground truncate">@{a.username}</span>
+                        <Pill tone="danger">Baneada</Pill>
                       </div>
-                      {userName && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 18 }}>
-                          <div style={{ width: 14, height: 14, borderRadius: '50%', background: isLogin ? 'rgba(52,199,89,0.2)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: isLogin ? '#34c759' : 'var(--muted)', flexShrink: 0 }}>
-                            {a.user!.firstName[0]}{a.user!.lastName[0]}
-                          </div>
-                          <span style={{ fontSize: 11, color: isLogin ? '#34c759' : 'var(--muted)', fontWeight: isLogin ? 600 : 400 }}>{userName}</span>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                    ))}
+                    {igShadow.map(a => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 px-5 py-3">
+                        <span className="text-sm font-medium text-foreground truncate">@{a.username}</span>
+                        <Pill tone="warning">Warning</Pill>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
-            )}
+            </Card>
+
+            <Card
+              title="Actividad reciente"
+              icon={<Clock className="w-4 h-4 text-muted-foreground" />}
+              bodyClassName="p-0"
+            >
+              <div className="max-h-[360px] overflow-y-auto">
+                {loading ? (
+                  <div className="p-5 space-y-3">
+                    {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 rounded bg-muted animate-pulse" />)}
+                  </div>
+                ) : (data?.recentActivity ?? []).length === 0 ? (
+                  <Empty>Sin actividad</Empty>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {(data?.recentActivity ?? []).map(a => {
+                      const cfg = ACTION_CONFIG[a.action]
+                      const color = cfg?.color ?? '#878a99'
+                      const userName = a.user ? `${a.user.firstName} ${a.user.lastName}` : null
+                      return (
+                        <li key={a.id} className="flex items-center gap-3 px-5 py-3">
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${color}1a`, color }}>
+                            {cfg?.icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground truncate">{cfg?.label ?? a.action}</p>
+                            {userName && <p className="text-xs text-muted-foreground truncate">{userName}</p>}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">{relativeTime(a.createdAt)}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </Card>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }
